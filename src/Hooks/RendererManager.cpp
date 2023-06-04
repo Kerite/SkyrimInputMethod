@@ -3,6 +3,7 @@
 #include "detours/detours.h"
 
 #include "Cirero.h"
+#include "Helpers/DebugHelper.h"
 #include "InGameIme.h"
 #include "Utils.h"
 
@@ -12,9 +13,9 @@ namespace Hooks
 	REL::Relocation<decltype(IDXGISwapChain_Present)> old_IDXGISwapChain_Present;
 	HRESULT WINAPI IDXGISwapChain_Present(IDXGISwapChain* a_this, UINT a_syncInterval, UINT a_flags)
 	{
-		InGameIME* in_game_ime = InGameIME::GetSingleton();
+		InGameIME* pInGameIme = InGameIME::GetSingleton();
 
-		in_game_ime->OnRender();
+		pInGameIme->OnRender();
 
 		return old_IDXGISwapChain_Present(a_this, a_syncInterval, a_flags);
 	}
@@ -31,12 +32,26 @@ namespace Hooks
 		return hr;
 	}
 
-	void RendererManager::Install()
+	HRESULT WINAPI RendererManager::DLL_D3D11_D3D11CreateDeviceAndSwapChain_Hook::hooked(
+		IDXGIAdapter* a_pAdapter,
+		D3D_DRIVER_TYPE a_driverType,
+		HMODULE a_software,
+		UINT a_flags,
+		const D3D_FEATURE_LEVEL* a_pFeatureLevels,
+		UINT a_featureLevels,
+		UINT a_sdkVersion,
+		const DXGI_SWAP_CHAIN_DESC* a_pSwapChainDesc,
+		IDXGISwapChain** a_ppSwapChain,
+		ID3D11Device** a_ppDevice,
+		D3D_FEATURE_LEVEL* a_pFeatureLevel,
+		ID3D11DeviceContext** a_ppImmediateContext)
 	{
-		DEBUG("Hooking Renderer_Init_InitD3D");
-		Utils::WriteCall<Renderer_Init_InitD3D_Hook>(REL::RelocationID(75595, 77226).address() + REL::Relocate(0x50, 0x2BC));
-
-		INFO("Installed RendererManager");
+		DH_INFO("Creating D3D Devices and SwapChain using D3D11_CREATE_DEVICE_BGRA_SUPPORT flag");
+		return oldFunc(
+			a_pAdapter, a_driverType, a_software,
+			a_flags | D3D11_CREATE_DEVICE_BGRA_SUPPORT, a_pFeatureLevels, a_featureLevels,
+			a_sdkVersion, a_pSwapChainDesc, a_ppSwapChain,
+			a_ppDevice, a_pFeatureLevel, a_ppImmediateContext);
 	}
 
 	void RendererManager::Renderer_Init_InitD3D_Hook::hooked()
@@ -61,9 +76,28 @@ namespace Hooks
 		hook_Present->Enable();
 		hook_ResizeTarget->Enable();
 
-		RE::Main* main = RE::Main::GetSingleton();
-
 		Cicero::GetSingleton()->SetupSinks();
-		//ImmAssociateContextEx((HWND)main->wnd, NULL, NULL);
+	}
+
+	void RendererManager::Install()
+	{
+		char name[MAX_PATH] = "\0";
+		GetModuleFileNameA(GetModuleHandle(NULL), name, MAX_PATH);
+		DEBUG("Hooking Renderer_Init_InitD3D");
+		Utils::WriteCall<Renderer_Init_InitD3D_Hook>(REL::RelocationID(75595, 77226).address() + REL::Relocate(0x50, 0x2BC));
+
+		DEBUG("Hooking D3D11CreateDeviceAndSwapChain");
+		{
+			auto hook = dku::Hook::AddIATHook(
+				name,
+				"d3d11.dll",
+				"D3D11CreateDeviceAndSwapChain",
+				FUNC_INFO(DLL_D3D11_D3D11CreateDeviceAndSwapChain_Hook::hooked));
+			DLL_D3D11_D3D11CreateDeviceAndSwapChain_Hook::oldFunc =
+				REL::Relocation<decltype(DLL_D3D11_D3D11CreateDeviceAndSwapChain_Hook::hooked)>(hook->OldAddress);
+			hook->Enable();
+		}
+
+		INFO("Installed RendererManager");
 	}
 }

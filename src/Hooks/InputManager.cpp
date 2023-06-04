@@ -58,24 +58,22 @@ namespace Hooks
 
 		if ((!increase) && (currentCount == 1)) {
 			// 退出最后一个输入窗口
-			// 禁用输入法
 			DEBUG("Post WM_IME_SETSTATE DISABLE to {}", (uintptr_t)pInputMenu->hwnd);
+			// 禁用输入法
 			PostMessage(pInputMenu->hwnd, WM_IME_SETSTATE, NULL, 0);
 
 			// 清除候选词列表
-			ime_critical_section.Enter();
+			pInputMenu->ime_critical_section.Enter();
+			DH_DEBUG("(ProcessAllowTextInput) Clearing CandidateList")
 			pInputMenu->candidateList.clear();
 			pInputMenu->inputContent.clear();
-			ime_critical_section.Leave();
+			pInputMenu->ime_critical_section.Leave();
 
 			InterlockedExchange(&pInputMenu->enableState, 0);
 		} else if ((increase) && (currentCount == 0)) {
-			DEBUG("Post WM_IME_SETSTATE ENABLE to {}", (uintptr_t)pInputMenu->hwnd);
 			// 打开第一个输入窗口
+			DEBUG("Post WM_IME_SETSTATE ENABLE to {}", (uintptr_t)pInputMenu->hwnd);
 			// 启用输入法
-			//RE::BSInputDeviceManager* pInputDeviceManager = RE::BSInputDeviceManager::GetSingleton();
-			//auto keyboard = pInputDeviceManager->GetVirtualKeyboard();
-			//keyboard->Reset();
 			PostMessage(pInputMenu->hwnd, WM_IME_SETSTATE, NULL, 1);
 		}
 	}

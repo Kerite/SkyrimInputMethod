@@ -2,15 +2,13 @@
 #pragma comment(lib, "d2d1")
 #pragma comment(lib, "dwrite")
 
-#include <d2d1.h>
-#include <d3d11.h>
-
 #include "directxtk/DirectXHelpers.h"
 #include "directxtk/SimpleMath.h"
 #include "directxtk/SpriteBatch.h"
 
 #include "Cirero.h"
 #include "Config.h"
+#include "Helpers/DebugHelper.h"
 #include "ICriticalSection.h"
 #include "InGameIme.h"
 #include "Offsets.h"
@@ -22,18 +20,23 @@
 
 using namespace DirectX;
 
-ICriticalSection ime_critical_section;
-
-InGameIME::InGameIME()
+InGameIME::InGameIME() :
+	enableState(false),
+	disableKeyState(false),
+	mInitialized(false)
 {
-	XMFLOAT2A tmp(10, 10);
-
 	HRESULT hr = S_OK;
 
-	hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &m_pD2DFactory);
-	if (SUCCEEDED(hr)) {
-		hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&m_pDWFactory));
+	rd = new RendererData();
+	memset(rd, 0, sizeof(RendererData));
+
+	if (FAILED(hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &m_pD2DFactory))) {
+		ERROR("Create d2d factory failed, HRESULT: {0:X}", hr);
 	}
+	if (FAILED(hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&m_pDWFactory)))) {
+		ERROR("Create dw factory failed, HRESULT: {0:X}", hr);
+	}
+	this->CalculatePosition();
 }
 
 bool InGameIME::Initialize(IDXGISwapChain* a_pSwapChain, ID3D11Device* a_pDevice, ID3D11DeviceContext* a_pDeviceContext)
@@ -41,76 +44,28 @@ bool InGameIME::Initialize(IDXGISwapChain* a_pSwapChain, ID3D11Device* a_pDevice
 	INFO("Initializing InGameIME");
 	HRESULT hr = S_OK;
 
-	enableState = false;
-	disableKeyState = false;
+	rd->pSwapChain = a_pSwapChain;
+	rd->pSwapChain->AddRef();
 
-	pDevice = a_pDevice;
-	pDeviceContext = a_pDeviceContext;
-
-	// From imgui, Get DXGI Factory
-	IDXGIDevice* pDXGIDevice = nullptr;
-	IDXGIAdapter* pDXGIAdapter = nullptr;
-	IDXGIFactory* pDXGIFactory = nullptr;
-	IDXGISurface* pDXGISurface = nullptr;
-
-	hr = a_pDevice->QueryInterface(IID_PPV_ARGS(&pDXGIDevice));
-	if (SUCCEEDED(hr)) {
-		hr = pDXGIDevice->GetAdapter(&pDXGIAdapter);
-	}
-	if (SUCCEEDED(hr)) {
-		hr = pDXGIAdapter->GetParent(IID_PPV_ARGS(&pDXGIFactory));
-	}
-	if (SUCCEEDED(hr)) {
-		pFactory = pDXGIFactory;
+	{
+		// Get Handle
+		DXGI_SWAP_CHAIN_DESC desc;
+		rd->pSwapChain->GetDesc(&desc);
+		hwnd = desc.OutputWindow;
 	}
 
-	pSwapChain = a_pSwapChain;
+	CreateD2DResources();
 
-	// Get Handle
-	DXGI_SWAP_CHAIN_DESC desc;
-	pSwapChain->GetDesc(&desc);
-	hwnd = desc.OutputWindow;
-	DEBUG("Handle of OutputWindow: {}", (uintptr_t)hwnd);
-
-	// Create TextFormats
-	if (SUCCEEDED(hr)) {
-		hr = m_pDWFactory->CreateTextFormat(
-			TextFont,
-			nullptr,
-			DWRITE_FONT_WEIGHT_BOLD,
-			DWRITE_FONT_STYLE_NORMAL,
-			DWRITE_FONT_STRETCH_NORMAL,
-			22.0F,
-			L"en-US",
-			&pCandicateItemFormat);
-	}
-	if (SUCCEEDED(hr)) {
-		hr = m_pDWFactory->CreateTextFormat(
-			TextFont,
-			nullptr,
-			DWRITE_FONT_WEIGHT_NORMAL,
-			DWRITE_FONT_STYLE_NORMAL,
-			DWRITE_FONT_STRETCH_NORMAL,
-			22.0f,
-			L"zh-CN",
-			&pInputContentFormat);
-	}
-	if (SUCCEEDED(hr)) {
-		hr = m_pDWFactory->CreateTextFormat(
-			TextFont,
-			nullptr,
-			DWRITE_FONT_WEIGHT_NORMAL,
-			DWRITE_FONT_STYLE_NORMAL,
-			DWRITE_FONT_STRETCH_NORMAL,
-			22.0f,
-			L"zh-CN",
-			&pHeaderFormat);
-	}
 	if (FAILED(hr))
-		ERROR("Initialize InGameIme Failed {}", (uintptr_t)hwnd);
+		ERROR("Initialize InGameIME Failed {}", (uintptr_t)hwnd);
 
 	mInitialized = SUCCEEDED(hr);
 	return mInitialized;
+}
+
+void InGameIME::OnLoadConfig()
+{
+	this->CalculatePosition();
 }
 
 void InGameIME::NextGroup() {}
@@ -145,56 +100,67 @@ HRESULT InGameIME::OnRender()
 		std::uint32_t iSelectedIndex = InterlockedCompareExchange(&selectedIndex, selectedIndex, -1);
 		std::uint32_t iPageStartIndex = InterlockedCompareExchange(&pageStartIndex, pageStartIndex, -1);
 
-		ime_critical_section.Enter();
-
-		const WCHAR* text = inputContent.c_str();
-
 		// Start actual Render
-		hr = pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
+		hr = rd->pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
 
-		if (SUCCEEDED(hr)) {
+		if (SUCCEEDED(hr) && pBackBuffer) {
 			D2D1_RENDER_TARGET_PROPERTIES props =
 				D2D1::RenderTargetProperties(
 					D2D1_RENDER_TARGET_TYPE_DEFAULT,
 					D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
 
 			hr = m_pD2DFactory->CreateDxgiSurfaceRenderTarget(pBackBuffer, &props, &m_pBackBufferRT);
+		} else {
+			ERROR("Get Buffer Failed, HRESULT: {:#X}", (ULONG)hr);
 		}
 		if (SUCCEEDED(hr) && m_pBackBufferRT) {
+			const WCHAR* text = inputContent.c_str();
 			D2D1_SIZE_F targetSize = m_pBackBufferRT->GetSize();
-			hr = m_pBackBufferRT->CreateSolidColorBrush(
-				D2D1::ColorF(D2D1::ColorF(0xFF6432, 1.0f)),
-				&m_pWhiteColorBrush);
-			if (SUCCEEDED(hr)) {
-				hr = m_pBackBufferRT->CreateSolidColorBrush(
-					D2D1::ColorF(D2D1::ColorF::Black),
-					&m_pHeaderColorBrush);
-			}
+
+			hr = this->CreateBrushes();
 
 			if (SUCCEEDED(hr)) {
+				ime_critical_section.Enter();
 				m_pBackBufferRT->BeginDraw();
 
 				// 填充背景
-				m_pBackBufferRT->FillRoundedRectangle(widgetRect, m_pBackgroundBrush);
+				m_pBackBufferRT->FillRoundedRectangle(m_widgetRect, m_pBackgroundBrush);
 
-				m_pBackBufferRT->DrawTextW(
-					L"中文输入",
-					lstrlen(L"中文输入"),
-					pHeaderFormat,
-					headerRect,
-					m_pWhiteColorBrush);
-				m_pBackBufferRT->DrawTextW(
-					text,
-					lstrlen(text),
-					pInputContentFormat,
-					inputContentRect,
-					m_pWhiteColorBrush);
+				// 绘制标题
+				m_pBackBufferRT->DrawTextW(L"中文输入", lstrlen(L"中文输入"), pHeaderFormat, m_headerRect, m_pHeaderColorBrush);
+				// 绘制输入内容
+				m_pBackBufferRT->DrawTextW(text, lstrlen(text), pInputContentFormat, m_inputContentRect, m_pInputContentBrush);
+
+				// 绘制候选字列表
+				float y_top_offset = m_inputContentRect.bottom;
+				float item_height = m_fontSizes.candidateItem + 8.0f;
+				int i = 0;
+				for (auto candidate : candidateList) {
+					if (iSelectedIndex == i + iPageStartIndex) {
+						m_pBackBufferRT->DrawTextW(
+							candidate.c_str(),
+							candidate.size(),
+							pCandicateItemFormat,
+							D2D1::RectF(m_position.x, y_top_offset, m_position.x + m_position.width, y_top_offset + item_height),
+							m_pSelectedColorBrush);
+					} else {
+						m_pBackBufferRT->DrawTextW(
+							candidate.c_str(),
+							candidate.size(),
+							pCandicateItemFormat,
+							D2D1::RectF(m_position.x, y_top_offset, m_position.x + m_position.width, y_top_offset + item_height),
+							m_pCandidateColorBrush);
+					}
+					y_top_offset += item_height;
+					i++;
+				}
 
 				hr = m_pBackBufferRT->EndDraw();
+				ime_critical_section.Leave();
 			}
+		} else {
+			ERROR("Get BackBufferRT Failed, HRESULT: {:#X}", (ULONG)hr);
 		}
-
-		ime_critical_section.Leave();
 	}
 
 	return hr;
@@ -272,5 +238,78 @@ void InGameIME::ProcessImeNotify(HWND hWnd, WPARAM wParam, LPARAM lParam)
 
 HRESULT InGameIME::CreateD2DResources()
 {
-	return E_NOTIMPL;
+	HRESULT hr = S_OK;
+	if (SUCCEEDED(hr)) {
+		// 标题字体
+		hr = m_pDWFactory->CreateTextFormat(
+			TextFont,
+			nullptr,
+			DWRITE_FONT_WEIGHT_NORMAL,
+			DWRITE_FONT_STYLE_NORMAL,
+			DWRITE_FONT_STRETCH_NORMAL,
+			m_fontSizes.header,
+			L"zh-CN",
+			&pHeaderFormat);
+		pHeaderFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+	}
+	if (SUCCEEDED(hr)) {
+		// 输入内容字体
+		hr = m_pDWFactory->CreateTextFormat(
+			TextFont,
+			nullptr,
+			DWRITE_FONT_WEIGHT_NORMAL,
+			DWRITE_FONT_STYLE_NORMAL,
+			DWRITE_FONT_STRETCH_NORMAL,
+			m_fontSizes.inputContent,
+			L"zh-CN",
+			&pInputContentFormat);
+	}
+	if (SUCCEEDED(hr)) {
+		// 候选字列表字体
+		hr = m_pDWFactory->CreateTextFormat(
+			TextFont,
+			nullptr,
+			DWRITE_FONT_WEIGHT_BOLD,
+			DWRITE_FONT_STYLE_NORMAL,
+			DWRITE_FONT_STRETCH_NORMAL,
+			m_fontSizes.candidateItem,
+			L"en-US",
+			&pCandicateItemFormat);
+	}
+	return hr;
+}
+
+HRESULT InGameIME::CreateBrushes()
+{
+	HRESULT hr = S_OK;
+
+	if (SUCCEEDED(hr)) {
+		hr = m_pBackBufferRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black, 0.75f), &m_pBackgroundBrush);
+	}
+	if (SUCCEEDED(hr)) {
+		hr = m_pBackBufferRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &m_pHeaderColorBrush);
+	}
+	if (SUCCEEDED(hr)) {
+		hr = m_pBackBufferRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &m_pInputContentBrush);
+	}
+	if (SUCCEEDED(hr)) {
+		hr = m_pBackBufferRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &m_pCandidateColorBrush);
+	}
+	if (SUCCEEDED(hr)) {
+		hr = m_pBackBufferRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DarkBlue), &m_pSelectedColorBrush);
+	}
+	if (FAILED(hr)) {
+		ERROR("Create Brushes Failed");
+	}
+	return hr;
+}
+
+void InGameIME::CalculatePosition()
+{
+	float x = m_position.x, y = m_position.y;
+	float width = m_position.width, height = m_position.height;
+
+	m_widgetRect = D2D1::RoundedRect(D2D1::RectF(x, y, x + width, y + height), 10.0f, 10.0f);
+	m_headerRect = D2D1::RectF(x, y, x + width, y + m_fontSizes.header + 8.0f);
+	m_inputContentRect = D2D1::RectF(x, m_headerRect.bottom, x + width, m_headerRect.bottom + m_fontSizes.inputContent + 8.0f);
 }

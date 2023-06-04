@@ -232,10 +232,10 @@ STDAPI Cicero::OnEndEdit(ITfContext* cxt, TfEditCookie ecReadOnly, ITfEditRecord
 			std::wstring result(endEditBuffer);
 
 			InGameIME* inGameIme = InGameIME::GetSingleton();
-			ime_critical_section.Enter();
+			inGameIme->ime_critical_section.Enter();
 			DH_DEBUGW(L"Input Content", result);
 			inGameIme->inputContent = result;
-			ime_critical_section.Leave();
+			inGameIme->ime_critical_section.Leave();
 
 			pRange->Release();
 		}
@@ -342,39 +342,47 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* lpCandidate)
 	InGameIME* inGameIme = InGameIME::GetSingleton();
 
 	if (InterlockedCompareExchange(&inGameIme->enableState, inGameIme->enableState, 2)) {
-		UINT uIndex = 0, uCount = 0, uCurrentPage = 0, uPageCount = 0;
-		DWORD dwPageStart = 0, dwPageSize = 0, dwPageSelection = 0;
+		UINT uSelectedIndex = 0, uCount = 0, uCurrentPage = 0, uPageCount = 0;
+		DWORD dwPageStart = 0, dwCurrentPageSize = 0, dwPageSelection = 0;
 
 		BSTR result = nullptr;
 
-		lpCandidate->GetSelection(&uIndex);
+		lpCandidate->GetSelection(&uSelectedIndex);
 		lpCandidate->GetCount(&uCount);
 		lpCandidate->GetCurrentPage(&uCurrentPage);
 
-		dwPageSelection = static_cast<DWORD>(uIndex);
+		dwPageSelection = static_cast<DWORD>(uSelectedIndex);
 		lpCandidate->GetPageIndex(nullptr, 0, &uPageCount);
+		DH_DEBUG("(Cicero) Updating CandidateList, Selection: {}, Count: {}, CurrentPage: {}, PageCount: {}", uSelectedIndex, uCount, uCurrentPage, uPageCount);
 		if (uPageCount > 0) {
 			std::unique_ptr<UINT[], void(__cdecl*)(void*)> indexList(
 				reinterpret_cast<UINT*>(Utils::HeapAlloc(sizeof(UINT) * uPageCount)),
 				Utils::HeapFree);
 			lpCandidate->GetPageIndex(indexList.get(), uPageCount, &uPageCount);
 			dwPageStart = indexList[uCurrentPage];
-			dwPageSize = (uCurrentPage < uPageCount - 1) ? std::min(uCount, indexList[uCurrentPage + 1]) - dwPageStart : uCount - dwPageStart;
+			if (uCurrentPage == uPageCount - 1) {
+				// 最后一页
+				dwCurrentPageSize = uCount - dwPageStart;
+			} else {
+				dwCurrentPageSize = std::min(uCount, indexList[uCurrentPage + 1]) - dwPageStart;
+			}
 		}
-		dwPageSize = std::min<DWORD>(dwPageSize, MAX_CANDLIST);
-		if (dwPageSize)
+		dwCurrentPageSize = std::min<DWORD>(dwCurrentPageSize, MAX_CANDLIST);
+		if (dwCurrentPageSize)
 			InterlockedExchange(&inGameIme->disableKeyState, 1);
 
-		// Update Candidate Page Information to In Game Menu
+		DH_DEBUG("(Cicero) SelectedIndex in current page: {}, PageStartIndex: {}", dwPageSelection, dwPageStart);
+
+		// Update Candidate Page Information to InGameIME
 		InterlockedExchange(&inGameIme->selectedIndex, dwPageSelection);
 		InterlockedExchange(&inGameIme->pageStartIndex, dwPageStart);
 
 		WCHAR candidateBuffer[MAX_PATH];
 		WCHAR resultBuffer[MAX_PATH];
 
-		ime_critical_section.Enter();
+		inGameIme->ime_critical_section.Enter();
 		inGameIme->candidateList.clear();
-		for (int i = 0; i < dwPageSize; i++) {
+		for (int i = 0; i < dwCurrentPageSize; i++) {
 			if (SUCCEEDED(lpCandidate->GetString(i + dwPageStart, &result))) {
 				if (result != nullptr) {
 					wsprintf(candidateBuffer, L"%d. %s", i + 1, result);
@@ -386,7 +394,7 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* lpCandidate)
 				}
 			}
 		}
-		ime_critical_section.Leave();
+		inGameIme->ime_critical_section.Leave();
 	}
 }
 
@@ -431,9 +439,9 @@ void Cicero::UpdateCurrentInputMethodName()
 
 	InGameIME* pInGameIME = InGameIME::GetSingleton();
 
-	ime_critical_section.Enter();
+	pInGameIME->ime_critical_section.Enter();
 	pInGameIME->stateInfo = temp;
-	ime_critical_section.Leave();
+	pInGameIME->ime_critical_section.Leave();
 
 	DH_DEBUG("当前输入法: {}", name);
 }

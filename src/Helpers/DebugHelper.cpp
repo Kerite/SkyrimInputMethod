@@ -9,7 +9,7 @@ void DebugHelper::SendDebugMessage(std::string message)
 	if (hPipe != INVALID_HANDLE_VALUE && m_bInstalled) {
 		WriteFile(hPipe, message.c_str(), message.size() + 1, &dwWritten, NULL);
 	}
-	std::cout << "[DEBUG]" << message << std::endl;
+	std::cout << "[DEBUG] " << message << std::endl;
 }
 
 void DebugHelper::SendInfoMessage(std::string message)
@@ -21,7 +21,7 @@ void DebugHelper::SendInfoMessage(std::string message)
 	if (hPipe != INVALID_HANDLE_VALUE && m_bInstalled) {
 		WriteFile(hPipe, message.c_str(), message.size() + 1, &dwWritten, NULL);
 	}
-	std::cout << "[INFO ]" << message << std::endl;
+	std::cout << "[INFO ] " << message << std::endl;
 }
 
 void DebugHelper::Install()

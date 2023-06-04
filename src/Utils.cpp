@@ -88,7 +88,6 @@ namespace Utils
 
 	bool SendUnicodeMessage(UINT32 code)
 	{
-		DH_DEBUGW(L"Utils::SendUnicodeMessage Sending {}", code);
 		if (code == 96 || code == 183) {
 			return false;
 		}
@@ -109,11 +108,13 @@ namespace Utils
 			GFxCharEvent* charEvent = new GFxCharEvent(code, 0);
 			scaleFormMessageData->scaleformEvent = charEvent;
 			RE::BSFixedString menuName = interface_strings->topMenu;
+
+			DH_DEBUGW(L"(Utils::SendUnicodeMessage) Sending {}", code);
+
 			pUIMessageQueue->AddMessage(menuName, RE::UI_MESSAGE_TYPE::kScaleformEvent, scaleFormMessageData);
 			buffer_position = (buffer_position + 1) % BUFFER_SIZE;
 			return true;
 		}
-		DH_DEBUG("= END FUNC = Utils::SendUnicodeMessage");
 		return false;
 	}
 
@@ -146,10 +147,9 @@ namespace Utils
 			InterlockedExchange(&ime->selectedIndex, pList->dwSelection);
 			InterlockedExchange(&ime->pageStartIndex, pList->dwPageStart);
 
-			ime_critical_section.Enter();
+			ime->ime_critical_section.Enter();
 
 			ime->candidateList.clear();
-			// const Configs::IME &imeConfig = Config::GetSingleton().GetIme();
 
 			for (unsigned int i = 0; i < pList->dwCount && i < pList->dwPageSize && i < 0; i++) {
 				wprintf_s(buffer, L"%d.", i + 1);
@@ -158,8 +158,9 @@ namespace Utils
 				temp += pSubStr;
 				ime->candidateList.push_back(temp);
 			}
+			DH_DEBUG("CandidateSize: {}", ime->candidateList.size());
 
-			ime_critical_section.Leave();
+			ime->ime_critical_section.Leave();
 		}
 		ImmReleaseContext(hWnd, hIMC);
 		DH_DEBUG("= END FUNC = Utils::GetCandidateList");
@@ -194,13 +195,13 @@ namespace Utils
 
 	void GetInputString(const HWND& hWnd)
 	{
-		DH_DEBUG("= FUNC = Utils::GetInputString");
+		InGameIME* pIme = InGameIME::GetSingleton();
 		HIMC hImc = ImmGetContext(hWnd);
 		UINT uLen;
+		DH_DEBUG("= FUNC = Utils::GetInputString");
 		uLen = ImmGetCompositionString(hImc, GCS_COMPSTR, NULL, 0);
 		DH_DEBUG("Composition String's Length: {}", uLen);
 		if (uLen) {
-			DH_DEBUG("Allocating Memory of szCompStr");
 			UINT uMem = uLen + 1;
 			std::unique_ptr<WCHAR[], void(__cdecl*)(void*)> szCompStr(
 				reinterpret_cast<WCHAR*>(HeapAlloc(uMem * sizeof(WCHAR))),
@@ -212,12 +213,10 @@ namespace Utils
 				std::wcout << L"szCompStr:" << szCompStr << std::endl;
 				std::wcout << L"Text" << std::endl;
 
-				InGameIME* ime = InGameIME::GetSingleton();
-
-				ime_critical_section.Enter();
-				ime->inputContent = std::wstring(szCompStr.get());
-				DH_DEBUGW(L"Input Content: {}", ime->inputContent);
-				ime_critical_section.Leave();
+				pIme->ime_critical_section.Enter();
+				pIme->inputContent = std::wstring(szCompStr.get());
+				DH_DEBUGW(L"Update InputContent: {}", pIme->inputContent);
+				pIme->ime_critical_section.Leave();
 			} else {
 				DH_DEBUG("Allocation of szCompStr Failed");
 			}
