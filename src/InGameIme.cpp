@@ -52,6 +52,8 @@ bool InGameIME::Initialize(IDXGISwapChain* a_pSwapChain, ID3D11Device* a_pDevice
 		DXGI_SWAP_CHAIN_DESC desc;
 		rd->pSwapChain->GetDesc(&desc);
 		hwnd = desc.OutputWindow;
+
+		ImmAssociateContextEx(hwnd, 0, 0);
 	}
 
 	CreateD2DResources();

@@ -17,8 +17,6 @@ namespace
 			Hooks::SKSEManager::GetSingleton()->Install();
 			break;
 		case SKSE::MessagingInterface::kDataLoaded:
-			if (REL::Module::IsAE()) {
-			}
 			break;
 		default:
 			break;

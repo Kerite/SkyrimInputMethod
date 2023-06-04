@@ -60,12 +60,13 @@ namespace Hooks
 		case WM_IME_ENDCOMPOSITION:
 			InterlockedExchange(&pInGameIme->enableState, 0);
 
-			pInGameIme->ime_critical_section.Enter();
-			DH_DEBUG("[WinProc WM_IME_ENDCOMPOSITION] Clearing InputContent and CandidateList");
-			pInGameIme->candidateList.clear();
-			pInGameIme->inputContent.clear();
-			pInGameIme->ime_critical_section.Leave();
-
+			if (!pCicero->ciceroState) {
+				pInGameIme->ime_critical_section.Enter();
+				DH_DEBUG("[WinProc WM_IME_ENDCOMPOSITION] Clearing InputContent and CandidateList");
+				pInGameIme->candidateList.clear();
+				pInGameIme->inputContent.clear();
+				pInGameIme->ime_critical_section.Leave();
+			}
 			if (pControlMap->textEntryCount) {
 				auto f = [=](UINT32 time) -> bool {
 					std::this_thread::sleep_for(std::chrono::milliseconds(time));

@@ -56,7 +56,7 @@ namespace Hooks
 
 		std::uint8_t currentCount = pControlMap->textEntryCount;
 
-		if ((!increase) && (currentCount == 1)) {
+		if (!increase && currentCount == 1) {
 			// 退出最后一个输入窗口
 			DEBUG("Post WM_IME_SETSTATE DISABLE to {}", (uintptr_t)pInputMenu->hwnd);
 			// 禁用输入法
@@ -70,7 +70,7 @@ namespace Hooks
 			pInputMenu->ime_critical_section.Leave();
 
 			InterlockedExchange(&pInputMenu->enableState, 0);
-		} else if ((increase) && (currentCount == 0)) {
+		} else if (increase && currentCount == 0) {
 			// 打开第一个输入窗口
 			DEBUG("Post WM_IME_SETSTATE ENABLE to {}", (uintptr_t)pInputMenu->hwnd);
 			// 启用输入法
