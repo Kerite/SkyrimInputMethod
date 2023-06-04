@@ -40,7 +40,7 @@ namespace Utils
 
 	bool SendUnicodeMessage(UINT32 code);
 
-	void GetCandidateList(HWND hWnd);
+	void UpdateCandidateList(HWND hWnd);
 
 	void GetResultString(const HWND& hWnd);
 

@@ -230,8 +230,8 @@ void InGameIME::ProcessImeNotify(HWND hWnd, WPARAM wParam, LPARAM lParam)
 	case IMN_CHANGECANDIDATE:
 		InterlockedExchange(&enableState, 1);
 		DEBUG("TextEntryCount: {}", pControlMap->textEntryCount)
-		if (pControlMap->textEntryCount && pCicero->ciceroState == CICERO_DISABLED) {
-			Utils::GetCandidateList(hWnd);
+		if (pControlMap->textEntryCount && !pCicero->ciceroState) {
+			Utils::UpdateCandidateList(hWnd);
 		}
 	}
 }

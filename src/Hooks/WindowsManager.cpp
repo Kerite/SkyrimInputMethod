@@ -50,7 +50,7 @@ namespace Hooks
 			if (pControlMap->textEntryCount) {
 				if (lParam & GCS_CURSORPOS) {}
 				if (lParam & CS_INSERTCHAR) {}
-				if (lParam & GCS_COMPSTR)
+				if (lParam & GCS_COMPSTR && !pCicero->ciceroState)  // Only handle this message when TSF is disabled
 					Utils::GetInputString(hWnd);
 				if (lParam & GCS_RESULTSTR)
 					Utils::GetResultString(hWnd);

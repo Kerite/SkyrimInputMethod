@@ -46,7 +46,7 @@ public:
 	ITfUIElement* GetUIElement(DWORD dwUIElementId);
 	void UpdateCandidateList(ITfCandidateListUIElement* lpCandidate);
 
-	int ciceroState;
+	bool ciceroState;
 
 private:
 	TfClientId m_clientID;
@@ -64,4 +64,5 @@ private:
 	ULONG m_refCount;
 
 	void UpdateCurrentInputMethodName();
+	void UpdateState(DWORD dwProfileType, HKL hkl);
 };
