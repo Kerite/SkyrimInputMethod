@@ -94,32 +94,35 @@ namespace Utils
 			DH_DEBUG("[Utils::UpdateCandidateList] == Finish == Context is null, cancel")
 			return;
 		}
-		DWORD dwBufLen = ImmGetCandidateList(hIMC, 0, nullptr, 0);
+		DWORD dwBufLen = ImmGetCandidateList(hIMC, 0, nullptr, 0);  // Get size first
 		if (!dwBufLen) {
 			ImmReleaseContext(hWnd, hIMC);
 			DH_DEBUG("[Utils::UpdateCandidateList] == Finish == Candidate list is empty, cancel")
 			return;
 		}
-		std::unique_ptr<CANDIDATELIST, void(__cdecl*)(void*)> pList(
+		std::unique_ptr<CANDIDATELIST, void(__cdecl*)(void*)> pCandidateList(
 			reinterpret_cast<LPCANDIDATELIST>(HeapAlloc(dwBufLen)), HeapFree);
-		if (!pList) {
+		if (!pCandidateList) {
 			ImmReleaseContext(hWnd, hIMC);
 			DH_DEBUG("[Utils::UpdateCandidateList] == Finish == Alocation memory is empty, cancel")
 			return;
 		}
-		ImmGetCandidateList(hIMC, 0, pList.get(), dwBufLen);
-		DH_DEBUG("Candidate: {}", pList->dwStyle);
-		if (pList->dwStyle != IME_CAND_CODE) {
-			WCHAR buffer[8];
+		ImmGetCandidateList(hIMC, 0, pCandidateList.get(), dwBufLen);
+		DH_DEBUG("CandidateList.dwStyle: {}", pCandidateList->dwStyle);
+		if (pCandidateList->dwStyle != IME_CAND_CODE) {
+			DH_DEBUG("CandidateList dwCount: {}, dwSize: {}", pCandidateList->dwCount, pCandidateList->dwSize);
+			DH_DEBUG("CandidateList dwSelection: {}, dwPageStart: {}", pCandidateList->dwSelection, pCandidateList->dwPageStart);
 
-			InterlockedExchange(&pInGameIME->selectedIndex, pList->dwSelection);
-			InterlockedExchange(&pInGameIME->pageStartIndex, pList->dwPageStart);
+			InterlockedExchange(&pInGameIME->selectedIndex, pCandidateList->dwSelection);
+			InterlockedExchange(&pInGameIME->pageStartIndex, pCandidateList->dwPageStart);
+
+			WCHAR buffer[MAX_PATH];
 
 			pInGameIME->imeCriticalSection.Enter();
 			pInGameIME->candidateList.clear();
-			for (int i = 0; i < pList->dwCount && i < pList->dwPageSize && i < 0; i++) {
-				wprintf_s(buffer, L"%d.", i + 1);
-				WCHAR* pSubStr = (WCHAR*)((BYTE*)pList.get() + pList->dwOffset[i + pList->dwPageStart]);
+			for (int i = 0; i < pCandidateList->dwCount && i < pCandidateList->dwPageSize && i < Configs::GetSingleton()->GetCandidateSize(); i++) {
+				wsprintf(buffer, L"%d.", i + 1);
+				WCHAR* pSubStr = (WCHAR*)((BYTE*)pCandidateList.get() + pCandidateList->dwOffset[i + pCandidateList->dwPageStart]);
 				std::wstring temp(buffer);
 				temp += pSubStr;
 				pInGameIME->candidateList.push_back(temp);
