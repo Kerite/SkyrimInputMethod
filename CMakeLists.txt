@@ -52,7 +52,6 @@ source_group(
 add_subdirectory($ENV{CommonLibSSEPath} CommonLibSSE)
 add_subdirectory($ENV{DKUtilPath} DKUtil)
 find_package(spdlog CONFIG REQUIRED)
-find_package(directxtk CONFIG REQUIRED)
 find_path(DETOURS_INCLUDE_DIRS "detours/detours.h")
 find_library(DETOURS_LIBRARY detours REQUIRED)
 
@@ -85,10 +84,7 @@ target_link_libraries(
 		CommonLibSSE::CommonLibSSE
 		DKUtil::DKUtil
 		spdlog::spdlog
-		Microsoft::DirectXTK
 		${DETOURS_LIBRARY}
-		#debug ${CMAKE_CURRENT_SOURCE_DIR}/include/detours/Debug/detours.lib
-		#optimized ${CMAKE_CURRENT_SOURCE_DIR}/include/detours/Release/detours.lib
 )
 
 # compiler def

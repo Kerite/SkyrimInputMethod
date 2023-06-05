@@ -1,5 +1,11 @@
-﻿#include "RE/CustomRE.h"
+﻿#pragma comment(lib, "imm32.lib")
+#pragma comment(lib, "d2d1")
+#pragma comment(lib, "dwrite")
+#pragma comment(lib, "dxguid.lib")
 
+#include "RE/CustomRE.h"
+
+#include "Cirero.h"
 #include "Helpers/DebugHelper.h"
 #include "Hooks/InputManager.h"
 #include "Hooks/RendererManager.h"
@@ -34,22 +40,29 @@ DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 
 	DKUtil::Logger::Init(Plugin::NAME, REL::Module::get().version().string());
 
-	//REL::Module::reset();
 	SKSE::Init(a_skse);
 
 	INFO("{} v{} loaded", Plugin::NAME, Plugin::Version);
 
-	// do stuff
 	if (!SKSE::GetMessagingInterface()->RegisterListener(MessageHandler)) {
 		return false;
 	}
-#ifndef NDEBUG
-	DebugHelper::GetSingleton()->Install();
-#endif
+
 	Hooks::RendererManager::GetSingleton()->Install();
 	Hooks::InputManager::GetSingleton()->Install();
 	Hooks::WindowsManager::GetSingleton()->Install();
-	Configs::GetSingleton()->Load();
+	auto configs = Configs::GetSingleton();
+	configs->Load();
 
+#ifdef NDEBUG
+	if (configs->GetDebugMode()) {
+#endif
+		DebugHelper::GetSingleton()->Install();
+#ifdef NDEBUG
+		dku::Logger::EnableDebug(true);
+	} else {
+		dku::Logger::EnableDebug(false);
+	}
+#endif
 	return true;
 }

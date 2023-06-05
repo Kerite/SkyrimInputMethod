@@ -80,19 +80,24 @@ STDAPI Cicero::QueryInterface(REFIID riid, void** ppvObj)
 HRESULT Cicero::SetupSinks()
 {
 	HRESULT hr = S_OK;
-	ITfSource* pSource;
+	ITfSource* pSource = nullptr;
+	int block = 0;
 
 	hr = CoInitialize(NULL);
 	if (SUCCEEDED(hr)) {
+		block++;
 		hr = CoCreateInstance(CLSID_TF_ThreadMgr, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&m_pThreadMgrEx));
 	}
-	if (SUCCEEDED(hr)) {
+	if (SUCCEEDED(hr) && m_pThreadMgrEx) {
+		block++;
 		hr = m_pThreadMgrEx->ActivateEx(&m_clientID, TF_TMAE_UIELEMENTENABLEDONLY);
 	}
-	if (SUCCEEDED(hr)) {
+	if (SUCCEEDED(hr) && m_pThreadMgrEx) {
+		block++;
 		hr = m_pThreadMgrEx->QueryInterface(IID_ITfSource, (LPVOID*)&pSource);
 	}
-	if (SUCCEEDED(hr)) {
+	if (SUCCEEDED(hr) && pSource) {
+		block++;
 		pSource->AdviseSink(__uuidof(ITfUIElementSink), (ITfUIElementSink*)this, &m_uiElementSinkCookie);
 		pSource->AdviseSink(__uuidof(ITfInputProcessorProfileActivationSink), (ITfInputProcessorProfileActivationSink*)this, &m_inputProcessorProfileActivationSinkCookie);
 		pSource->AdviseSink(__uuidof(ITfThreadMgrEventSink), (ITfThreadMgrEventSink*)this, &m_threadMgrEventSinkCookie);
@@ -106,14 +111,18 @@ HRESULT Cicero::SetupSinks()
 			IID_ITfInputProcessorProfiles,
 			(LPVOID*)&m_pProfiles);
 	}
-	if (SUCCEEDED(hr)) {
+	if (SUCCEEDED(hr) && m_pProfiles) {
+		block++;
 		hr = m_pProfiles->QueryInterface(IID_ITfInputProcessorProfileMgr, (LPVOID*)&m_pProfileMgr);
 	}
-	UpdateCurrentInputMethodName();
+	if (SUCCEEDED(hr) && m_pProfileMgr) {
+		block++;
+		hr = UpdateCurrentInputMethodName();
+	}
 	if (SUCCEEDED(hr)) {
 		INFO("[TSF] set-up Successful");
 	} else {
-		ERROR("[TSF] Set-up Failed");
+		ERROR("[TSF] Set-up Failed, Result: {:#X}, walked code block: {}", (ULONG)hr, block);
 	}
 	return S_OK;
 }
@@ -379,7 +388,7 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* lpCandidate)
 
 		inGameIme->ime_critical_section.Enter();
 		inGameIme->candidateList.clear();
-		for (int i = 0; i < dwCurrentPageSize; i++) {
+		for (int i = 0; i <= dwCurrentPageSize; i++) {
 			if (FAILED(lpCandidate->GetString(i + dwPageStart, &result)) || !result) {
 				continue;
 			}
@@ -394,13 +403,20 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* lpCandidate)
 	}
 }
 
-void Cicero::UpdateCurrentInputMethodName()
+HRESULT Cicero::UpdateCurrentInputMethodName()
 {
 	static WCHAR lastTipName[64];
-
-	ZeroMemory(lastTipName, sizeof(lastTipName));
+	HRESULT hr = S_OK;
 	TF_INPUTPROCESSORPROFILE tip;
-	m_pProfileMgr->GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD, &tip);
+	ZeroMemory(lastTipName, sizeof(lastTipName));  // Clear lastTipName
+	if (!m_pProfileMgr) {
+		ERROR("(UpdateCurrentInputMethodName) ProfileMgr is not initialized");
+		return E_POINTER;
+	}
+	hr = m_pProfileMgr->GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD, &tip);
+	if (FAILED(hr)) {
+		ERROR("(UpdateCurrentInputMethodName) GetActiveProfile failed");
+	}
 	this->UpdateState(tip.dwProfileType, tip.hkl);
 	if (tip.dwProfileType == TF_PROFILETYPE_INPUTPROCESSOR) {
 		BSTR bstrImeName = nullptr;
@@ -415,32 +431,14 @@ void Cicero::UpdateCurrentInputMethodName()
 			GetLayoutName(klnm, lastTipName);
 		}
 	}
-
-	int len = WideCharToMultiByte(CP_ACP, 0, lastTipName, wcslen(lastTipName), NULL, 0, NULL, NULL);
-	std::unique_ptr<char[], void(__cdecl*)(void*)> resultBuffer(
-		reinterpret_cast<char*>(Utils::HeapAlloc(len + 1)),
-		Utils::HeapFree);
-
-	WideCharToMultiByte(CP_ACP, 0, lastTipName, wcslen(lastTipName), resultBuffer.get(), len, NULL, NULL);
-	resultBuffer[len] = '\0';
-
-	std::string name = resultBuffer.get();
-
-	std::uint32_t pos = name.find("-", NULL);
-	std::string temp("状态: ");
-	if (pos != std::string::npos) {
-		pos += 2;
-		temp.append(name, pos, name.size());
-	} else
-		temp.append(name);
-
 	InGameIME* pInGameIME = InGameIME::GetSingleton();
 
 	pInGameIME->ime_critical_section.Enter();
-	pInGameIME->stateInfo = temp;
+	pInGameIME->currentMethod = std::wstring(lastTipName);
 	pInGameIME->ime_critical_section.Leave();
 
-	DH_DEBUG("当前输入法: {}", name);
+	DH_DEBUGW(L"当前输入法: {}", lastTipName);
+	return hr;
 }
 
 void Cicero::UpdateState(DWORD dwProfileType, HKL hkl)

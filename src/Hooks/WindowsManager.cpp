@@ -21,6 +21,7 @@ namespace Hooks
 		case WM_ACTIVATE:
 			if (wParam == WA_ACTIVE) {
 				DH_DEBUG("[WinProc WM_ACTIVATE] Window Activated");
+				pInGameIme->inputContent = std::wstring();
 			}
 			break;
 

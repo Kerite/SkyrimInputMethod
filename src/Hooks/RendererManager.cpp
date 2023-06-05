@@ -56,6 +56,7 @@ namespace Hooks
 
 	void RendererManager::Renderer_Init_InitD3D_Hook::hooked()
 	{
+		DH_DEBUG("Calling origin Init3D");
 		oldFunc();
 
 		auto renderer = RE::BSGraphics::Renderer::GetSingleton();
@@ -73,6 +74,7 @@ namespace Hooks
 		old_IDXGISwapChain_Present = REL::Relocation<decltype(IDXGISwapChain_Present)>(hook_Present->OldAddress);
 		old_IDXGISwapChain_ResizeTarget = REL::Relocation<decltype(IDXGISwapChain_ResizeTarget)>(hook_ResizeTarget->OldAddress);
 
+		DH_DEBUG("Installing Present");
 		hook_Present->Enable();
 		hook_ResizeTarget->Enable();
 

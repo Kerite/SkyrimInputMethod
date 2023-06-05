@@ -63,6 +63,6 @@ private:
 
 	ULONG m_refCount;
 
-	void UpdateCurrentInputMethodName();
+	HRESULT UpdateCurrentInputMethodName();
 	void UpdateState(DWORD dwProfileType, HKL hkl);
 };

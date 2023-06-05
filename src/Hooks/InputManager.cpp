@@ -114,9 +114,7 @@ namespace Hooks
 				// ×Ö·ûÊÂ¼þ
 				GFxCharEvent* charEvent = static_cast<GFxCharEvent*>(event);
 				DH_DEBUG("(UIMessageQueue::AddMessage) Char Event, Code {}", (char)charEvent->wcharCode);
-				//DEBUG("Processing GFxEvent Char Event, Code is {} ({})", (char)charEvent->wcharCode, charEvent->wcharCode);
 				Utils::HeapFree(a_data);
-				//oldFunc(a_pThis, a_menuName, a_type, a_data);
 				return;
 			}
 		}
@@ -125,8 +123,11 @@ namespace Hooks
 
 	HRESULT WINAPI SCIDirectInputDevice::SetCooperativeLevel(HWND a1, DWORD a2) noexcept
 	{
-		DH_INFO("Running Hooked SetCooperativeLevel");
-		return m_pOriginDevice->SetCooperativeLevel(a1, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND | DISCL_NOWINKEY);
+		if (m_deviceType == kKeyboard) {
+			return m_pOriginDevice->SetCooperativeLevel(a1, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND | DISCL_NOWINKEY);
+		} else {
+			return m_pOriginDevice->SetCooperativeLevel(a1, DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+		}
 	}
 
 	ULONG WINAPI SCIDirectInputDevice::AddRef() noexcept

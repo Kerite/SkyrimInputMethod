@@ -1,22 +1,10 @@
-#pragma comment(lib, "imm32.lib")
-#pragma comment(lib, "d2d1")
-#pragma comment(lib, "dwrite")
-
-#include "directxtk/DirectXHelpers.h"
-#include "directxtk/SimpleMath.h"
-#include "directxtk/SpriteBatch.h"
-
+#include "InGameIme.h"
 #include "Cirero.h"
 #include "Config.h"
 #include "Helpers/DebugHelper.h"
 #include "ICriticalSection.h"
-#include "InGameIme.h"
 #include "Offsets.h"
 #include "Utils.h"
-
-#define TextFont L"微软雅黑"
-#define TextSize 20
-#define SPACE_BETWEEN_CANDIDATE 10
 
 using namespace DirectX;
 
@@ -53,9 +41,9 @@ bool InGameIME::Initialize(IDXGISwapChain* a_pSwapChain, ID3D11Device* a_pDevice
 		rd->pSwapChain->GetDesc(&desc);
 		hwnd = desc.OutputWindow;
 
-		ImmAssociateContextEx(hwnd, 0, 0);
+		ImmAssociateContextEx(hwnd, NULL, 0);
 	}
-
+	OnLoadConfig();
 	CreateD2DResources();
 
 	if (FAILED(hr))
@@ -67,6 +55,14 @@ bool InGameIME::Initialize(IDXGISwapChain* a_pSwapChain, ID3D11Device* a_pDevice
 
 void InGameIME::OnLoadConfig()
 {
+	Configs* pConfigs = Configs::GetSingleton();
+	m_position.x = pConfigs->GetX();
+	m_position.y = pConfigs->GetY();
+	fontName = pConfigs->GetFont();
+	m_fontSizes.candidateItem = pConfigs->GetCandidateFontSize();
+	m_fontSizes.header = pConfigs->GetHeaderFontSize();
+	m_fontSizes.inputContent = pConfigs->GetInputFontSize();
+	DH_DEBUGW(L"IME Configs: x: {}, y: {}, font: {}", m_position.x, m_position.y, fontName);
 	this->CalculatePosition();
 }
 
@@ -125,34 +121,47 @@ HRESULT InGameIME::OnRender()
 				ime_critical_section.Enter();
 				m_pBackBufferRT->BeginDraw();
 
+				float item_height = m_fontSizes.candidateItem * 1.1 + 2 * m_position.padding;
+
+				// 计算控件大小
+				m_widgetRect = D2D1_ROUNDED_RECT(
+					D2D1_RECT_F(
+						m_position.x,
+						m_position.y,
+						m_position.x + m_position.width,
+						m_inputContentRect.bottom + item_height * candidateList.size() + m_position.padding),
+					8.0f, 8.0f);
+
 				// 填充背景
 				m_pBackBufferRT->FillRoundedRectangle(m_widgetRect, m_pBackgroundBrush);
-
 				// 绘制标题
-				m_pBackBufferRT->DrawTextW(L"中文输入", lstrlen(L"中文输入"), pHeaderFormat, m_headerRect, m_pHeaderColorBrush);
+				m_pBackBufferRT->DrawTextW(currentMethod.c_str(), currentMethod.size(), pHeaderFormat, m_headerRect, m_pHeaderColorBrush);
 				// 绘制输入内容
 				m_pBackBufferRT->DrawTextW(text, lstrlen(text), pInputContentFormat, m_inputContentRect, m_pInputContentBrush);
 
 				// 绘制候选字列表
 				float y_top_offset = m_inputContentRect.bottom;
-				float item_height = m_fontSizes.candidateItem + 8.0f;
 				int i = 0;
 				for (auto candidate : candidateList) {
+					// 当前选择
+					auto rect = D2D1::RectF(
+						m_position.x + m_position.padding,
+						y_top_offset,
+						m_position.x + m_position.width - m_position.padding,
+						y_top_offset + item_height);
 					if (iSelectedIndex == i + iPageStartIndex) {
-						m_pBackBufferRT->DrawTextW(
-							candidate.c_str(),
-							candidate.size(),
-							pCandicateItemFormat,
-							D2D1::RectF(m_position.x, y_top_offset, m_position.x + m_position.width, y_top_offset + item_height),
-							m_pSelectedColorBrush);
-					} else {
-						m_pBackBufferRT->DrawTextW(
-							candidate.c_str(),
-							candidate.size(),
-							pCandicateItemFormat,
-							D2D1::RectF(m_position.x, y_top_offset, m_position.x + m_position.width, y_top_offset + item_height),
-							m_pCandidateColorBrush);
+						m_pBackBufferRT->DrawRoundedRectangle(D2D1_ROUNDED_RECT(rect, 4.0f), m_pSelectedColorBrush, 0.7f);
 					}
+					m_pBackBufferRT->DrawTextW(
+						candidate.c_str(),
+						candidate.size(),
+						pCandicateItemFormat,
+						D2D1::RectF(
+							rect.left + m_position.padding,
+							rect.top + m_position.padding,
+							rect.right - m_position.padding,
+							rect.bottom - m_position.padding),
+						m_pCandidateColorBrush);
 					y_top_offset += item_height;
 					i++;
 				}
@@ -241,10 +250,11 @@ void InGameIME::ProcessImeNotify(HWND hWnd, WPARAM wParam, LPARAM lParam)
 HRESULT InGameIME::CreateD2DResources()
 {
 	HRESULT hr = S_OK;
+	DWRITE_TRIMMING trimmingOption{ DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0 };
 	if (SUCCEEDED(hr)) {
 		// 标题字体
 		hr = m_pDWFactory->CreateTextFormat(
-			TextFont,
+			fontName.c_str(),
 			nullptr,
 			DWRITE_FONT_WEIGHT_NORMAL,
 			DWRITE_FONT_STYLE_NORMAL,
@@ -257,7 +267,7 @@ HRESULT InGameIME::CreateD2DResources()
 	if (SUCCEEDED(hr)) {
 		// 输入内容字体
 		hr = m_pDWFactory->CreateTextFormat(
-			TextFont,
+			fontName.c_str(),
 			nullptr,
 			DWRITE_FONT_WEIGHT_NORMAL,
 			DWRITE_FONT_STYLE_NORMAL,
@@ -269,14 +279,15 @@ HRESULT InGameIME::CreateD2DResources()
 	if (SUCCEEDED(hr)) {
 		// 候选字列表字体
 		hr = m_pDWFactory->CreateTextFormat(
-			TextFont,
+			fontName.c_str(),
 			nullptr,
 			DWRITE_FONT_WEIGHT_BOLD,
 			DWRITE_FONT_STYLE_NORMAL,
 			DWRITE_FONT_STRETCH_NORMAL,
 			m_fontSizes.candidateItem,
-			L"en-US",
+			L"zh-CN",
 			&pCandicateItemFormat);
+		pCandicateItemFormat->SetTrimming(&trimmingOption, nullptr);
 	}
 	return hr;
 }
@@ -286,7 +297,7 @@ HRESULT InGameIME::CreateBrushes()
 	HRESULT hr = S_OK;
 
 	if (SUCCEEDED(hr)) {
-		hr = m_pBackBufferRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black, 0.75f), &m_pBackgroundBrush);
+		hr = m_pBackBufferRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black, 0.80f), &m_pBackgroundBrush);
 	}
 	if (SUCCEEDED(hr)) {
 		hr = m_pBackBufferRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &m_pHeaderColorBrush);
@@ -298,7 +309,7 @@ HRESULT InGameIME::CreateBrushes()
 		hr = m_pBackBufferRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &m_pCandidateColorBrush);
 	}
 	if (SUCCEEDED(hr)) {
-		hr = m_pBackBufferRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DarkBlue), &m_pSelectedColorBrush);
+		hr = m_pBackBufferRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::LightGray), &m_pSelectedColorBrush);
 	}
 	if (FAILED(hr)) {
 		ERROR("Create Brushes Failed");
@@ -309,9 +320,9 @@ HRESULT InGameIME::CreateBrushes()
 void InGameIME::CalculatePosition()
 {
 	float x = m_position.x, y = m_position.y;
-	float width = m_position.width, height = m_position.height;
+	float width = m_position.width;
 
-	m_widgetRect = D2D1::RoundedRect(D2D1::RectF(x, y, x + width, y + height), 10.0f, 10.0f);
-	m_headerRect = D2D1::RectF(x, y, x + width, y + m_fontSizes.header + 8.0f);
+	//m_widgetRect = D2D1::RoundedRect(D2D1::RectF(x, y, x + width, y + height), 10.0f, 10.0f);
+	m_headerRect = D2D1::RectF(x, y, x + width, y + m_fontSizes.header + 2 * m_position.padding);
 	m_inputContentRect = D2D1::RectF(x, m_headerRect.bottom, x + width, m_headerRect.bottom + m_fontSizes.inputContent + 8.0f);
 }

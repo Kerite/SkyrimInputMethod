@@ -5,15 +5,11 @@
 #include "Config.h"
 #include "InGameIme.h"
 #include "RE/CustomRE.h"
-#include "RingBuffer.h"
 
 #define BUFFER_SIZE 400
 
 namespace Utils
 {
-	GFxCharEvent* char_buffer = (GFxCharEvent*)malloc(sizeof(GFxCharEvent) * BUFFER_SIZE);
-	int buffer_position = 0;
-
 	std::string WideStringToString(const std::wstring wstr)
 	{
 		LPSTR buffer = nullptr;
@@ -117,7 +113,6 @@ namespace Utils
 		DH_DEBUGW(L"(Utils::SendUnicodeMessage) Sending {}", code);
 
 		pUIMessageQueue->AddMessage(menuName, RE::UI_MESSAGE_TYPE::kScaleformEvent, scaleFormMessageData);
-		buffer_position = (buffer_position + 1) % BUFFER_SIZE;
 		return true;
 		return false;
 	}
