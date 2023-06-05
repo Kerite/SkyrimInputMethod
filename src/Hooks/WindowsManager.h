@@ -1,5 +1,7 @@
 #pragma once
 
+#define WM_IME_SETSTATE 0x0655
+
 namespace Hooks
 {
 	class WindowsManager final : public Singleton<WindowsManager>

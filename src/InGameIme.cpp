@@ -9,8 +9,8 @@
 using namespace DirectX;
 
 InGameIME::InGameIME() :
-	enableState(false),
-	disableKeyState(false),
+	bEnabled(false),
+	bDisableSpecialKey(false),
 	mInitialized(false)
 {
 	HRESULT hr = S_OK;
@@ -94,7 +94,7 @@ HRESULT InGameIME::OnRender()
 	}
 	auto control_map = RE::ControlMap::GetSingleton();
 
-	if (control_map->textEntryCount && InterlockedCompareExchange(&enableState, enableState, 2)) {
+	if (control_map->textEntryCount) {
 		std::uint32_t iSelectedIndex = InterlockedCompareExchange(&selectedIndex, selectedIndex, -1);
 		std::uint32_t iPageStartIndex = InterlockedCompareExchange(&pageStartIndex, pageStartIndex, -1);
 
@@ -108,8 +108,6 @@ HRESULT InGameIME::OnRender()
 					D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
 
 			hr = m_pD2DFactory->CreateDxgiSurfaceRenderTarget(pBackBuffer, &props, &m_pBackBufferRT);
-		} else {
-			ERROR("Get Buffer Failed, HRESULT: {:#X}", (ULONG)hr);
 		}
 		if (SUCCEEDED(hr) && m_pBackBufferRT) {
 			const WCHAR* text = inputContent.c_str();
@@ -118,7 +116,7 @@ HRESULT InGameIME::OnRender()
 			hr = this->CreateBrushes();
 
 			if (SUCCEEDED(hr)) {
-				ime_critical_section.Enter();
+				imeCriticalSection.Enter();
 				m_pBackBufferRT->BeginDraw();
 
 				float item_height = m_fontSizes.candidateItem * 1.1 + 2 * m_position.padding;
@@ -135,7 +133,7 @@ HRESULT InGameIME::OnRender()
 				// 填充背景
 				m_pBackBufferRT->FillRoundedRectangle(m_widgetRect, m_pBackgroundBrush);
 				// 绘制标题
-				m_pBackBufferRT->DrawTextW(currentMethod.c_str(), currentMethod.size(), pHeaderFormat, m_headerRect, m_pHeaderColorBrush);
+				m_pBackBufferRT->DrawTextW(currentMethodName.c_str(), currentMethodName.size(), pHeaderFormat, m_headerRect, m_pHeaderColorBrush);
 				// 绘制输入内容
 				m_pBackBufferRT->DrawTextW(text, lstrlen(text), pInputContentFormat, m_inputContentRect, m_pInputContentBrush);
 
@@ -150,6 +148,7 @@ HRESULT InGameIME::OnRender()
 						m_position.x + m_position.width - m_position.padding,
 						y_top_offset + item_height);
 					if (iSelectedIndex == i + iPageStartIndex) {
+						// Draw selection border
 						m_pBackBufferRT->DrawRoundedRectangle(D2D1_ROUNDED_RECT(rect, 4.0f), m_pSelectedColorBrush, 0.7f);
 					}
 					m_pBackBufferRT->DrawTextW(
@@ -167,10 +166,8 @@ HRESULT InGameIME::OnRender()
 				}
 
 				hr = m_pBackBufferRT->EndDraw();
-				ime_critical_section.Leave();
+				imeCriticalSection.Leave();
 			}
-		} else {
-			ERROR("Get BackBufferRT Failed, HRESULT: {:#X}", (ULONG)hr);
 		}
 	}
 
@@ -180,71 +177,6 @@ HRESULT InGameIME::OnRender()
 bool InGameIME::IsImeOpen()
 {
 	return ImmIsIME(GetKeyboardLayout(0));
-}
-
-/// <summary>
-/// 处理 WM_IME_COMPOSITION
-/// </summary>
-/// <param name="hWnd"></param>
-/// <param name="wParam"></param>
-/// <param name="lParam"></param>
-void InGameIME::ProcessImeComposition(HWND hWnd, WPARAM wParam, LPARAM lParam)
-{
-	RE::ControlMap* control_map = RE::ControlMap::GetSingleton();
-	// 当前正在输入的输入法句柄
-	HIMC hImc = ImmGetContext(hWnd);
-
-	if (!hImc) {
-		return;
-	}
-
-	// 正在输入字符
-	if (control_map->textEntryCount) {
-		if (lParam & GCS_RESULTSTR) {
-			// 获取结果字符串长度。单位是字节
-			DWORD bufferSize = ImmGetCompositionString(hImc, GCS_RESULTSTR, NULL, 0);
-			// 加上字符串结尾的\0
-			bufferSize += sizeof(WCHAR);
-			// 给结果字符串分配内存
-			std::unique_ptr<WCHAR[], void(__cdecl*)(void*)> resultBuffer(reinterpret_cast<WCHAR*>(Utils::HeapAlloc(bufferSize)), Utils::HeapFree);
-			ZeroMemory(resultBuffer.get(), bufferSize);
-			// 重新获取一次结果字符串
-			ImmGetCompositionString(hImc, GCS_RESULTSTR, resultBuffer.get(), bufferSize);
-			// 将结果字符串逐字发送到Scaleform消息队列
-			for (size_t i = 0; i < bufferSize; i++) {
-				WCHAR unicode = resultBuffer[i];
-				Utils::SendUnicodeMessage(unicode);
-			}
-
-			ImmReleaseContext(hWnd, hImc);
-		}
-		if (lParam & GCS_COMPSTR) {
-			Utils::GetInputString(hWnd);
-		}
-		if (lParam & CS_INSERTCHAR) {
-		}
-		if (lParam & GCS_CURSORPOS) {
-		}
-	}
-	return;
-}
-
-void InGameIME::ProcessImeNotify(HWND hWnd, WPARAM wParam, LPARAM lParam)
-{
-	DEBUG("[WinProc] 处理 IME_NOTIFY 消息 WPARAM: {:X}", wParam);
-	RE::ControlMap* pControlMap = RE::ControlMap::GetSingleton();
-	Cicero* pCicero = Cicero::GetSingleton();
-
-	switch (wParam) {
-	case IMN_OPENCANDIDATE:
-	case IMN_SETCANDIDATEPOS:
-	case IMN_CHANGECANDIDATE:
-		InterlockedExchange(&enableState, 1);
-		DEBUG("TextEntryCount: {}", pControlMap->textEntryCount)
-		if (pControlMap->textEntryCount && !pCicero->ciceroState) {
-			Utils::UpdateCandidateList(hWnd);
-		}
-	}
 }
 
 HRESULT InGameIME::CreateD2DResources()
@@ -324,5 +256,5 @@ void InGameIME::CalculatePosition()
 
 	//m_widgetRect = D2D1::RoundedRect(D2D1::RectF(x, y, x + width, y + height), 10.0f, 10.0f);
 	m_headerRect = D2D1::RectF(x, y, x + width, y + m_fontSizes.header + 2 * m_position.padding);
-	m_inputContentRect = D2D1::RectF(x, m_headerRect.bottom, x + width, m_headerRect.bottom + m_fontSizes.inputContent + 8.0f);
+	m_inputContentRect = D2D1::RectF(x + m_position.padding, m_headerRect.bottom, x + width, m_headerRect.bottom + m_fontSizes.inputContent + 8.0f);
 }

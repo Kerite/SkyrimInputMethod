@@ -4,6 +4,8 @@
 #include "InGameIme.h"
 #include "Utils.h"
 
+#include "Config.h"
+
 bool GetLayoutName(const WCHAR* kl, WCHAR* nm)
 {
 	long lRet;
@@ -26,6 +28,7 @@ bool GetLayoutName(const WCHAR* kl, WCHAR* nm)
 }
 
 Cicero::Cicero() :
+	m_bComInited(false),
 	ciceroState(CICERO_DISABLED),
 	m_pProfileMgr(nullptr),
 	m_pProfiles(nullptr),
@@ -39,6 +42,8 @@ Cicero::Cicero() :
 
 Cicero::~Cicero()
 {
+	DH_INFO("Releasing Cicero");
+	ReleaseSinks();
 }
 
 STDAPI_(ULONG)
@@ -79,50 +84,56 @@ STDAPI Cicero::QueryInterface(REFIID riid, void** ppvObj)
 
 HRESULT Cicero::SetupSinks()
 {
+	int processedCodeBlock = 0;
 	HRESULT hr = S_OK;
 	ITfSource* pSource = nullptr;
-	int block = 0;
+	DH_INFO("[TSF] Initializing Cicero");
 
-	hr = CoInitialize(NULL);
+	if (!m_bComInited) {
+		hr = CoInitializeEx(NULL, ::COINIT_APARTMENTTHREADED);
+	}
 	if (SUCCEEDED(hr)) {
-		block++;
+		processedCodeBlock++;
 		hr = CoCreateInstance(CLSID_TF_ThreadMgr, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&m_pThreadMgrEx));
 	}
-	if (SUCCEEDED(hr) && m_pThreadMgrEx) {
-		block++;
+	if (SUCCEEDED(hr)) {
+		processedCodeBlock++;
 		hr = m_pThreadMgrEx->ActivateEx(&m_clientID, TF_TMAE_UIELEMENTENABLEDONLY);
 	}
-	if (SUCCEEDED(hr) && m_pThreadMgrEx) {
-		block++;
+	if (SUCCEEDED(hr)) {
+		processedCodeBlock++;
 		hr = m_pThreadMgrEx->QueryInterface(IID_ITfSource, (LPVOID*)&pSource);
 	}
-	if (SUCCEEDED(hr) && pSource) {
-		block++;
-		pSource->AdviseSink(__uuidof(ITfUIElementSink), (ITfUIElementSink*)this, &m_uiElementSinkCookie);
-		pSource->AdviseSink(__uuidof(ITfInputProcessorProfileActivationSink), (ITfInputProcessorProfileActivationSink*)this, &m_inputProcessorProfileActivationSinkCookie);
-		pSource->AdviseSink(__uuidof(ITfThreadMgrEventSink), (ITfThreadMgrEventSink*)this, &m_threadMgrEventSinkCookie);
-
-		pSource->Release();
-
-		hr = CoCreateInstance(
-			CLSID_TF_InputProcessorProfiles,
-			NULL,
-			CLSCTX_INPROC_SERVER,
-			IID_ITfInputProcessorProfiles,
-			(LPVOID*)&m_pProfiles);
+	if (SUCCEEDED(hr)) {
+		processedCodeBlock++;
+		hr = pSource->AdviseSink(IID_ITfUIElementSink, (ITfUIElementSink*)this, &m_uiElementSinkCookie);
 	}
-	if (SUCCEEDED(hr) && m_pProfiles) {
-		block++;
+	if (SUCCEEDED(hr)) {
+		processedCodeBlock++;
+		hr = pSource->AdviseSink(IID_ITfInputProcessorProfileActivationSink, (ITfInputProcessorProfileActivationSink*)this, &m_inputProcessorProfileActivationSinkCookie);
+	}
+	if (SUCCEEDED(hr)) {
+		processedCodeBlock++;
+		hr = pSource->AdviseSink(IID_ITfThreadMgrEventSink, (ITfThreadMgrEventSink*)this, &m_threadMgrEventSinkCookie);
+	}
+	if (SUCCEEDED(hr)) {
+		processedCodeBlock++;
+		pSource->Release();
+		hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, NULL, CLSCTX_INPROC_SERVER, IID_ITfInputProcessorProfiles, (LPVOID*)&m_pProfiles);
+	}
+	if (SUCCEEDED(hr)) {
+		processedCodeBlock++;
 		hr = m_pProfiles->QueryInterface(IID_ITfInputProcessorProfileMgr, (LPVOID*)&m_pProfileMgr);
 	}
-	if (SUCCEEDED(hr) && m_pProfileMgr) {
-		block++;
+	if (SUCCEEDED(hr)) {
+		processedCodeBlock++;
 		hr = UpdateCurrentInputMethodName();
 	}
 	if (SUCCEEDED(hr)) {
-		INFO("[TSF] set-up Successful");
+		m_bComInited = true;
+		DH_INFO("[TSF] Set-up Successful");
 	} else {
-		ERROR("[TSF] Set-up Failed, Result: {:#X}, walked code block: {}", (ULONG)hr, block);
+		DH_INFO("!!![TSF] Set-up Failed, Result: 0x{:X}, processed code blocks: {}", (ULONG)hr, processedCodeBlock);
 	}
 	return S_OK;
 }
@@ -151,6 +162,7 @@ void Cicero::ReleaseSinks()
 		SafeRelease(&m_pThreadMgrEx);
 	}
 	CoUninitialize();
+	m_bComInited = false;
 	INFO("[Cicero] Released Sinks");
 }
 
@@ -162,10 +174,9 @@ STDAPI Cicero::BeginUIElement(DWORD dwUIElementId, BOOL* pbShow)
 	HRESULT hr = S_OK;
 
 	InGameIME* pInGameIme = InGameIME::GetSingleton();
-	InterlockedExchange(&pInGameIme->enableState, 1);
-
 	ITfUIElement* pElement = GetUIElement(dwUIElementId);
 
+	pInGameIme->bEnabled = IME_UI_ENABLED;
 	if (!pElement) {
 		return E_INVALIDARG;
 	}
@@ -176,7 +187,7 @@ STDAPI Cicero::BeginUIElement(DWORD dwUIElementId, BOOL* pbShow)
 		this->UpdateCandidateList(lpCandidate);
 	}
 	pElement->Release();
-	DH_DEBUG("[TSF BeginUIElement#{}] == End ==", token);
+	DH_DEBUG("[TSF BeginUIElement#{}] == Finish ==\n", token);
 	return S_OK;
 }
 
@@ -196,7 +207,7 @@ STDAPI Cicero::UpdateUIElement(DWORD dwUIElementId)
 		this->UpdateCandidateList(lpCandidate);
 		pElement->Release();
 	}
-	DH_DEBUG("[TSF UpdateUIElement#{}] == End ==", token);
+	DH_DEBUG("[TSF UpdateUIElement#{}] == Finish ==\n", token);
 	return S_OK;
 }
 
@@ -216,59 +227,65 @@ STDAPI Cicero::EndUIElement(DWORD dwUIElementId)
 		this->UpdateCandidateList(lpCandidate);
 		pElement->Release();
 	}
-	DH_DEBUG("[TSF EndUIElement#{}] == End ==", token);
+	DH_DEBUG("[TSF EndUIElement#{}] == Finish ==\n", token);
 	return S_OK;
 }
 
 // ITfTextEditSink
 STDAPI Cicero::OnEndEdit(ITfContext* cxt, TfEditCookie ecReadOnly, ITfEditRecord* pEditRecord)
 {
+	HRESULT hr = S_OK;
 	int token = rand();
-	DH_DEBUG("[TSF OnEndEdit#{}] == Start ==", token);
 	ITfContextComposition* pContextComposition;
-	if (FAILED(cxt->QueryInterface(&pContextComposition)))
-		return S_OK;
 	IEnumITfCompositionView* pEnumCompositionView;
-	if (FAILED(pContextComposition->EnumCompositions(&pEnumCompositionView))) {
-		pContextComposition->Release();
-		return S_OK;
+
+	DH_DEBUG("[TSF OnEndEdit#{}] == Start ==", token);
+	if (SUCCEEDED(hr = cxt->QueryInterface(&pContextComposition))) {
+		hr = pContextComposition->EnumCompositions(&pEnumCompositionView);
 	}
-	ITfCompositionView* pCompositionView;
-	ULONG remainCount = 0;
-	while (SUCCEEDED(pEnumCompositionView->Next(1, &pCompositionView, &remainCount)) && remainCount > 0) {
-		ITfRange* pRange;
-		WCHAR endEditBuffer[MAX_PATH];
-		ULONG bufferSize = 0;
-		if (SUCCEEDED(pCompositionView->GetRange(&pRange))) {
-			pRange->GetText(ecReadOnly, TF_TF_MOVESTART, endEditBuffer, MAX_PATH, &bufferSize);
-			endEditBuffer[bufferSize] = '\0';
+	if (SUCCEEDED(hr)) {
+		ITfCompositionView* pCompositionView;
+		ULONG remainCount = 0;
+		while (SUCCEEDED(pEnumCompositionView->Next(1, &pCompositionView, &remainCount)) && remainCount > 0) {
+			ITfRange* pRange;
+			WCHAR endEditBuffer[MAX_PATH];
+			ULONG bufferSize = 0;
+			if (SUCCEEDED(pCompositionView->GetRange(&pRange))) {
+				pRange->GetText(ecReadOnly, TF_TF_MOVESTART, endEditBuffer, MAX_PATH, &bufferSize);
+				endEditBuffer[bufferSize] = '\0';
 
-			std::wstring result(endEditBuffer);
+				std::wstring result(endEditBuffer);
 
-			InGameIME* inGameIme = InGameIME::GetSingleton();
-			inGameIme->ime_critical_section.Enter();
-			DH_DEBUGW(L"(TSF) Set InputContent: {}", result);
-			inGameIme->inputContent = result;
-			inGameIme->ime_critical_section.Leave();
+				InGameIME* inGameIme = InGameIME::GetSingleton();
+				inGameIme->imeCriticalSection.Enter();
+				DH_DEBUGW(L"(TSF) Set InputContent: {}", result);
+				inGameIme->inputContent = result;
+				inGameIme->imeCriticalSection.Leave();
 
-			pRange->Release();
+				pRange->Release();
+			}
+			pCompositionView->Release();
 		}
-		pCompositionView->Release();
 	}
-	pEnumCompositionView->Release();
-	pContextComposition->Release();
-	DH_DEBUG("[TSF OnEndEdit#{}] == End ==", token);
+	if (pEnumCompositionView) {
+		pEnumCompositionView->Release();
+	}
+	if (pContextComposition) {
+		pContextComposition->Release();
+	}
+	DH_DEBUG("[TSF OnEndEdit#{}] == Finish ==\n", token);
 	return S_OK;
 }
 
 // ITfInputProcessorProfileActivationSink
 STDAPI Cicero::OnActivated(DWORD dwProfileType, LANGID langid, REFCLSID clsid, REFGUID catid, REFGUID guidProfile, HKL hkl, DWORD dwFlags)
 {
-	DH_DEBUG("[TSF OnActivated] == Start ==");
+	int token = rand();
+	DH_DEBUG("[TSF OnActivated#{}] == Start ==", token);
 	if (!(dwFlags & TF_IPSINK_FLAG_ACTIVE))
 		return S_OK;
 	this->UpdateCurrentInputMethodName();
-	DH_DEBUG("[TSF OnActivated] == End ==");
+	DH_DEBUG("[TSF OnActivated#{}] == Finish ==\n", token);
 	return S_OK;
 }
 
@@ -287,19 +304,15 @@ STDAPI Cicero::OnUninitDocumentMgr(ITfDocumentMgr* pdim)
 // ITfThreadMgrEventSink::OnSetFocus
 STDAPI Cicero::OnSetFocus(ITfDocumentMgr* pdimFocus, ITfDocumentMgr* pdimPrevFocus)
 {
-	int token = rand();
-	DH_DEBUG("[TSF#OnSetFocus#{}] *CallBack*", token);
 	HRESULT hr = S_OK;
 	if (!pdimFocus)
 		return S_OK;
 	ITfSource* pSource = nullptr;
 	if (m_textEditSinkCookie != TF_INVALID_COOKIE) {
 		if (m_pBaseContext && SUCCEEDED(m_pBaseContext->QueryInterface(&pSource))) {
-			DEBUG("[TSF#OnSetFocus#{}] UnadviceSink", token);
 			hr = pSource->UnadviseSink(m_textEditSinkCookie);
 			SafeRelease(&pSource);
 			if (FAILED(hr)) {
-				DEBUG("[TSF#OnSetFocus#{}] UnadviceSink Failed", token);
 				return S_OK;
 			}
 			SafeRelease(&m_pBaseContext);
@@ -311,11 +324,9 @@ STDAPI Cicero::OnSetFocus(ITfDocumentMgr* pdimFocus, ITfDocumentMgr* pdimPrevFoc
 		hr = m_pBaseContext->QueryInterface(&pSource);
 	}
 	if (SUCCEEDED(hr)) {
-		DH_DEBUG("[TSF#OnSetFocus#{}] AdviseSink", token);
 		hr = pSource->AdviseSink(IID_ITfTextEditSink, static_cast<ITfTextEditSink*>(this), &m_textEditSinkCookie);
 	}
 	SafeRelease(&pSource);
-	DH_DEBUG("[TSF#OnSetFocus#{}] HRESULT: {}", token, hr);
 	return S_OK;
 }
 
@@ -335,7 +346,7 @@ ITfUIElement* Cicero::GetUIElement(DWORD dwUIElementId)
 {
 	ITfUIElementMgr* pElementMgr = nullptr;
 	ITfUIElement* pElement = nullptr;
-	if (SUCCEEDED(m_pThreadMgrEx->QueryInterface(__uuidof(ITfUIElementMgr), (void**)&pElementMgr))) {
+	if (SUCCEEDED(m_pThreadMgrEx->QueryInterface(IID_PPV_ARGS(&pElementMgr)))) {
 		pElementMgr->GetUIElement(dwUIElementId, &pElement);
 		pElementMgr->Release();
 	}
@@ -346,8 +357,9 @@ ITfUIElement* Cicero::GetUIElement(DWORD dwUIElementId)
 void Cicero::UpdateCandidateList(ITfCandidateListUIElement* lpCandidate)
 {
 	InGameIME* inGameIme = InGameIME::GetSingleton();
+	Configs* pConfigs = Configs::GetSingleton();
 
-	if (InterlockedCompareExchange(&inGameIme->enableState, inGameIme->enableState, 2)) {
+	if (inGameIme->bEnabled) {
 		UINT uSelectedIndex = 0, uCount = 0, uCurrentPage = 0, uPageCount = 0;
 		DWORD dwPageStart = 0, dwCurrentPageSize = 0, dwPageSelection = 0;
 
@@ -367,15 +379,15 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* lpCandidate)
 			lpCandidate->GetPageIndex(indexList.get(), uPageCount, &uPageCount);
 			dwPageStart = indexList[uCurrentPage];
 			if (uCurrentPage == uPageCount - 1) {
-				// 最后一页
+				// Last page
 				dwCurrentPageSize = uCount - dwPageStart;
 			} else {
 				dwCurrentPageSize = std::min(uCount, indexList[uCurrentPage + 1]) - dwPageStart;
 			}
 		}
-		dwCurrentPageSize = std::min<DWORD>(dwCurrentPageSize, MAX_CANDLIST);
-		if (dwCurrentPageSize)
-			InterlockedExchange(&inGameIme->disableKeyState, 1);
+		dwCurrentPageSize = std::min<DWORD>(dwCurrentPageSize, pConfigs->GetCandidateSize());
+		if (dwCurrentPageSize)  // If current page size > 0, disable special keys
+			InterlockedExchange(&inGameIme->bDisableSpecialKey, TRUE);
 
 		DH_DEBUG("(TSF) SelectedIndex in current page: {}, PageStartIndex: {}", dwPageSelection, dwPageStart);
 
@@ -386,7 +398,7 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* lpCandidate)
 		WCHAR candidateBuffer[MAX_PATH];
 		WCHAR resultBuffer[MAX_PATH];
 
-		inGameIme->ime_critical_section.Enter();
+		inGameIme->imeCriticalSection.Enter();
 		inGameIme->candidateList.clear();
 		for (int i = 0; i <= dwCurrentPageSize; i++) {
 			if (FAILED(lpCandidate->GetString(i + dwPageStart, &result)) || !result) {
@@ -399,12 +411,13 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* lpCandidate)
 			inGameIme->candidateList.push_back(temp);
 			SysFreeString(result);
 		}
-		inGameIme->ime_critical_section.Leave();
+		inGameIme->imeCriticalSection.Leave();
 	}
 }
 
 HRESULT Cicero::UpdateCurrentInputMethodName()
 {
+	DH_DEBUG("[TSF] Updating Current Input Method");
 	static WCHAR lastTipName[64];
 	HRESULT hr = S_OK;
 	TF_INPUTPROCESSORPROFILE tip;
@@ -417,15 +430,16 @@ HRESULT Cicero::UpdateCurrentInputMethodName()
 	if (FAILED(hr)) {
 		ERROR("(UpdateCurrentInputMethodName) GetActiveProfile failed");
 	}
+	DH_DEBUG("Updating State, 0x{:X}", tip.dwProfileType);
 	this->UpdateState(tip.dwProfileType, tip.hkl);
-	if (tip.dwProfileType == TF_PROFILETYPE_INPUTPROCESSOR) {
+	if (tip.dwProfileType & TF_PROFILETYPE_INPUTPROCESSOR) {
 		BSTR bstrImeName = nullptr;
 		m_pProfiles->GetLanguageProfileDescription(tip.clsid, tip.langid, tip.guidProfile, &bstrImeName);
 		if (bstrImeName != nullptr && wcslen(bstrImeName) < 64)
 			wcscpy(lastTipName, bstrImeName);
 		if (bstrImeName != nullptr)
 			SysFreeString(bstrImeName);
-	} else if (tip.dwProfileType == TF_PROFILETYPE_KEYBOARDLAYOUT) {
+	} else if (tip.dwProfileType & TF_PROFILETYPE_KEYBOARDLAYOUT) {
 		static WCHAR klnm[KL_NAMELENGTH];
 		if (GetKeyboardLayoutNameW(klnm)) {
 			GetLayoutName(klnm, lastTipName);
@@ -433,24 +447,24 @@ HRESULT Cicero::UpdateCurrentInputMethodName()
 	}
 	InGameIME* pInGameIME = InGameIME::GetSingleton();
 
-	pInGameIME->ime_critical_section.Enter();
-	pInGameIME->currentMethod = std::wstring(lastTipName);
-	pInGameIME->ime_critical_section.Leave();
+	pInGameIME->imeCriticalSection.Enter();
+	pInGameIME->currentMethodName = std::wstring(lastTipName);
+	pInGameIME->imeCriticalSection.Leave();
 
-	DH_DEBUGW(L"当前输入法: {}", lastTipName);
+	DH_DEBUGW(L"[TSF] Current Input Method: {}", lastTipName);
 	return hr;
 }
 
 void Cicero::UpdateState(DWORD dwProfileType, HKL hkl)
 {
 	if (dwProfileType & TF_PROFILETYPE_INPUTPROCESSOR) {
-		DEBUG("[TSF OnActivated] TIP输入法 {}", (unsigned int)hkl);
+		DH_DEBUG("[TSF UpdateState] TIP InputMethod {}", (unsigned int)hkl);
 		ciceroState = true;
 	} else if (dwProfileType & TF_PROFILETYPE_KEYBOARDLAYOUT) {
-		DEBUG("[TSF OnActivated] HKL/IME {}", (unsigned int)hkl);
+		DH_DEBUG("[TSF UpdateState] HKL/IME {}", (unsigned int)hkl);
 		ciceroState = false;
 	} else {
-		DEBUG("[TSF OnActivated] Unknown Profile Type {}", (unsigned int)hkl);
+		DH_DEBUG("[TSF UpdateState] Unknown Profile Type {}", (unsigned int)hkl);
 		ciceroState = false;
 	}
 }

@@ -2,6 +2,7 @@
 
 #include "Helpers/DebugHelper.h"
 
+#include "Cirero.h"
 #include "Config.h"
 #include "InGameIme.h"
 #include "RE/CustomRE.h"
@@ -22,12 +23,12 @@ namespace Utils
 		return result;
 	}
 
-	std::string ConvertToANSI(std::string s, UINT sourceCodePage)
+	std::string ConvertToANSI(std::string str, UINT sourceCodePage)
 	{
 		BSTR bstrWide;
 		char* pszAnsi;
 		int nLength;
-		const char* pszCode = s.c_str();
+		const char* pszCode = str.c_str();
 
 		nLength = MultiByteToWideChar(CP_UTF8, 0, pszCode, strlen(pszCode) + 1, NULL, NULL);
 		bstrWide = SysAllocStringLen(NULL, nLength);
@@ -68,7 +69,6 @@ namespace Utils
 		if (pMemoryManager) {
 			return pMemoryManager->Allocate(size, 0, false);
 		}
-		ERROR("Failed Allocate Heap");
 		return nullptr;
 	}
 
@@ -77,157 +77,161 @@ namespace Utils
 		RE::MemoryManager* pMemoryManager = RE::MemoryManager::GetSingleton();
 		if (pMemoryManager) {
 			pMemoryManager->Deallocate(ptr, false);
-			return;
+			spdlog::error("Failed free heap");
 		}
-		ERROR("Failed Free Heap");
-	}
-
-	bool SendUnicodeMessage(UINT32 code)
-	{
-		// Ignore '`' and '¡¤'
-		if (code == 96 || code == 183) {
-			return false;
-		}
-
-		RE::InterfaceStrings* interface_strings = RE::InterfaceStrings::GetSingleton();
-		RE::ControlMap* control_map = RE::ControlMap::GetSingleton();
-
-		if (!control_map->textEntryCount) {
-			DH_DEBUG("(Utils::SendUnicodeMessage) No InputBox opened, cancel");
-			return false;
-		}
-
-		auto pUIMessageQueue = RE::UIMessageQueue::GetSingleton();
-		auto pFactoryManager = RE::MessageDataFactoryManager::GetSingleton();
-		auto pFactory = pFactoryManager->GetCreator<RE::BSUIScaleformData>(interface_strings->bsUIScaleformData);
-		auto scaleFormMessageData = pFactory ? pFactory->Create() : nullptr;
-
-		if (scaleFormMessageData == nullptr) {
-			ERROR("Cast Pointer Data Failed");
-			return false;
-		}
-		GFxCharEvent* charEvent = new GFxCharEvent(code, 0);
-		scaleFormMessageData->scaleformEvent = charEvent;
-		RE::BSFixedString menuName = interface_strings->topMenu;
-
-		DH_DEBUGW(L"(Utils::SendUnicodeMessage) Sending {}", code);
-
-		pUIMessageQueue->AddMessage(menuName, RE::UI_MESSAGE_TYPE::kScaleformEvent, scaleFormMessageData);
-		return true;
-		return false;
 	}
 
 	void UpdateCandidateList(HWND hWnd)
 	{
-		DH_DEBUG("= FUNC = Utils::UpdateCandidateList");
-		InGameIME* ime = InGameIME::GetSingleton();
-		if (!InterlockedCompareExchange(&ime->enableState, ime->enableState, 2)) {
+		if (Cicero::GetSingleton()->ciceroState) {
+			// When TFS is enabled, candidate list is fetched from TFS
 			return;
 		}
+		DH_DEBUG("[Utils::UpdateCandidateList] == Start ==");
+		InGameIME* pInGameIME = InGameIME::GetSingleton();
 		HIMC hIMC = ImmGetContext(hWnd);
 		if (hIMC == nullptr) {
+			DH_DEBUG("[Utils::UpdateCandidateList] == Finish == Context is null, cancel")
 			return;
 		}
 		DWORD dwBufLen = ImmGetCandidateList(hIMC, 0, nullptr, 0);
 		if (!dwBufLen) {
 			ImmReleaseContext(hWnd, hIMC);
+			DH_DEBUG("[Utils::UpdateCandidateList] == Finish == Candidate list is empty, cancel")
 			return;
 		}
 		std::unique_ptr<CANDIDATELIST, void(__cdecl*)(void*)> pList(
 			reinterpret_cast<LPCANDIDATELIST>(HeapAlloc(dwBufLen)), HeapFree);
 		if (!pList) {
 			ImmReleaseContext(hWnd, hIMC);
+			DH_DEBUG("[Utils::UpdateCandidateList] == Finish == Alocation memory is empty, cancel")
 			return;
 		}
 		ImmGetCandidateList(hIMC, 0, pList.get(), dwBufLen);
+		DH_DEBUG("Candidate: {}", pList->dwStyle);
 		if (pList->dwStyle != IME_CAND_CODE) {
 			WCHAR buffer[8];
 
-			InterlockedExchange(&ime->selectedIndex, pList->dwSelection);
-			InterlockedExchange(&ime->pageStartIndex, pList->dwPageStart);
+			InterlockedExchange(&pInGameIME->selectedIndex, pList->dwSelection);
+			InterlockedExchange(&pInGameIME->pageStartIndex, pList->dwPageStart);
 
-			ime->ime_critical_section.Enter();
-			ime->candidateList.clear();
+			pInGameIME->imeCriticalSection.Enter();
+			pInGameIME->candidateList.clear();
 			for (int i = 0; i < pList->dwCount && i < pList->dwPageSize && i < 0; i++) {
 				wprintf_s(buffer, L"%d.", i + 1);
 				WCHAR* pSubStr = (WCHAR*)((BYTE*)pList.get() + pList->dwOffset[i + pList->dwPageStart]);
 				std::wstring temp(buffer);
 				temp += pSubStr;
-				ime->candidateList.push_back(temp);
-				DH_DEBUGW(L"(IME) {}", temp);
+				pInGameIME->candidateList.push_back(temp);
+				DH_DEBUGW(L"(IMM) {}", temp);
 			}
-			ime->ime_critical_section.Leave();
+			pInGameIME->imeCriticalSection.Leave();
 		}
 		ImmReleaseContext(hWnd, hIMC);
-		DH_DEBUG("= END FUNC = Utils::UpdateCandidateList");
+		DH_DEBUG("[Utils::UpdateCandidateList] == Finish ==\n");
+	}
+
+	void UpdateInputContent(const HWND& hWnd)
+	{
+		if (Cicero::GetSingleton()->ciceroState) {
+			// When TFS is enabled, candidate list is fetched from TFS
+			return;
+		}
+		InGameIME* pIme = InGameIME::GetSingleton();
+		HIMC hImc = ImmGetContext(hWnd);
+		LONG uNeededBytes, uStrLen;
+		DH_DEBUG("= START FUNC = Utils::UpdateInputContent");
+		uNeededBytes = ImmGetCompositionString(hImc, GCS_COMPSTR, NULL, 0);
+		if (!uNeededBytes) {
+			DH_DEBUG("Composition String is empty, cancel");
+			ImmReleaseContext(hWnd, hImc);
+			return;
+		}
+		uStrLen = (uNeededBytes / 2) + 1;
+		std::unique_ptr<WCHAR[], void(__cdecl*)(void*)> szCompStr(
+			reinterpret_cast<WCHAR*>(HeapAlloc(uStrLen * sizeof(WCHAR))),
+			HeapFree);
+
+		if (szCompStr) {
+			LONG writedBytes = ImmGetCompositionString(hImc, GCS_COMPSTR, szCompStr.get(), uNeededBytes);
+			szCompStr[uStrLen - 1] = '\0';
+
+			pIme->imeCriticalSection.Enter();
+			pIme->inputContent = std::wstring(szCompStr.get());
+			DH_DEBUGW(L"(IMM) Update InputContent: {}, Length: {}", pIme->inputContent, pIme->inputContent.size());
+			pIme->imeCriticalSection.Leave();
+		} else {
+			DH_DEBUG("Allocation of szCompStr Failed");
+		}
+		ImmReleaseContext(hWnd, hImc);
+		DH_DEBUG("= END FUNC = Utils::UpdateInputContent");
 	}
 
 	void GetResultString(const HWND& hWnd)
 	{
-		DH_DEBUG("= START FUNC = Utils::GetResultString");
+		DH_DEBUG("[Utils::GetResultString] == Start ==");
 		HIMC hImc = ImmGetContext(hWnd);
 		if (!hImc) {
-			DH_DEBUG("(IME) Context is empty, cancel");
+			DH_DEBUG("[Utils::GetResultString] Context is empty, cancel\n");
 			return;
 		}
 		DWORD bufferSize = ImmGetCompositionString(hImc, GCS_RESULTSTR, nullptr, 0);
 		if (!bufferSize) {
-			DH_DEBUG("(IME) Composition is empty, cancel");
+			DH_DEBUG("[Utils::GetResultString] Composition is empty, cancel\n");
 			ImmReleaseContext(hWnd, hImc);
 			return;
 		}
-		bufferSize += sizeof(WCHAR);  // add termination \0
-		std::unique_ptr<WCHAR[], void(__cdecl*)(void*)> wCharBuffer(
+		bufferSize += sizeof(WCHAR);
+		std::unique_ptr<WCHAR[], void(__cdecl*)(void*)> pBuffer(
 			reinterpret_cast<WCHAR*>(HeapAlloc(bufferSize)), HeapFree);
-		if (!wCharBuffer) {
-			DH_DEBUG("(IME) Composition is empty, cancel");
+		if (!pBuffer) {
+			DH_DEBUG("[Utils::GetResultString] Composition is empty, cancel\n");
 			ImmReleaseContext(hWnd, hImc);
 			return;
 		}
-		ZeroMemory(wCharBuffer.get(), bufferSize);
-		ImmGetCompositionString(hImc, GCS_RESULTSTR, wCharBuffer.get(), bufferSize);
+		ZeroMemory(pBuffer.get(), bufferSize);
+		ImmGetCompositionString(hImc, GCS_RESULTSTR, pBuffer.get(), bufferSize);
 		size_t len = bufferSize / sizeof(WCHAR);
 
 		for (size_t i = 0; i < len; i++) {
-			WCHAR unicode = wCharBuffer[i];
+			WCHAR unicode = pBuffer[i];
 			if (unicode > 0) {
 				SendUnicodeMessage(unicode);
 			}
 		}
 		ImmReleaseContext(hWnd, hImc);
-		DH_DEBUG("= END FUNC = Utils::GetResultString");
+		DH_DEBUG("[Utils::GetResultString] == Finish ==\n");
 	}
 
-	void GetInputString(const HWND& hWnd)
+	bool SendUnicodeMessage(UINT32 code)
 	{
-		InGameIME* pIme = InGameIME::GetSingleton();
-		HIMC hImc = ImmGetContext(hWnd);
-		UINT uLen;
-		DH_DEBUG("= START FUNC = Utils::GetInputString");
-		uLen = ImmGetCompositionString(hImc, GCS_COMPSTR, NULL, 0);
-		//DH_DEBUG("(IME) Composition String's Length: {}", uLen);
-		if (!uLen) {
-			DH_DEBUG("Composition String is empty, cancel");
-			ImmReleaseContext(hWnd, hImc);
-			return;
+		// Ignore '`' and '¡¤'
+		if (code == '`' || code == '¡¤') {
+			return false;
 		}
-		UINT uMem = uLen + 1;
-		std::unique_ptr<WCHAR[], void(__cdecl*)(void*)> szCompStr(
-			reinterpret_cast<WCHAR*>(HeapAlloc(uMem * sizeof(WCHAR))),
-			HeapFree);
 
-		if (szCompStr) {
-			szCompStr[uLen] = 0;
-			ImmGetCompositionString(hImc, GCS_COMPSTR, szCompStr.get(), uMem);
-
-			pIme->ime_critical_section.Enter();
-			pIme->inputContent = std::wstring(szCompStr.get());
-			DH_DEBUGW(L"(IME) Update InputContent: {}", pIme->inputContent);
-			pIme->ime_critical_section.Leave();
-		} else {
-			DH_DEBUG("Allocation of szCompStr Failed");
+		if (!RE::ControlMap::GetSingleton()->textEntryCount) {  // Don't send unicode if no text input box is opened
+			return false;
 		}
-		ImmReleaseContext(hWnd, hImc);
-		DH_DEBUG("= END FUNC = Utils::GetInputString");
+
+		auto pInterfaceStrings = RE::InterfaceStrings::GetSingleton();
+
+		auto pFactoryManager = RE::MessageDataFactoryManager::GetSingleton();
+		auto pFactory = pFactoryManager->GetCreator<RE::BSUIScaleformData>(pInterfaceStrings->bsUIScaleformData);
+		auto pScaleFormMessageData = pFactory ? pFactory->Create() : nullptr;
+
+		if (pScaleFormMessageData == nullptr) {
+			ERROR("Cast Pointer Data Failed");
+			return false;
+		}
+		// Start send message
+		GFxCharEvent* pCharEvent = new GFxCharEvent(code, 0);
+		pScaleFormMessageData->scaleformEvent = pCharEvent;
+		RE::BSFixedString menuName = pInterfaceStrings->topMenu;
+
+		DH_DEBUGW(L"(Utils::SendUnicodeMessage) Sending {}", code);
+
+		RE::UIMessageQueue::GetSingleton()->AddMessage(menuName, RE::UI_MESSAGE_TYPE::kScaleformEvent, pScaleFormMessageData);
+		return true;
 	}
 }

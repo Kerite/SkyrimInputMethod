@@ -38,11 +38,19 @@ namespace Utils
 
 	void HeapFree(void* ptr);
 
+	/// Send scaleform char message to game
+	/// 发送Scaleform字符消息到游戏
 	bool SendUnicodeMessage(UINT32 code);
 
+	/// Update candidate list from IMM
+	/// 更新候选字列表（IMM接口）
 	void UpdateCandidateList(HWND hWnd);
 
-	void GetResultString(const HWND& hWnd);
+	/// Update inputed content from IMM
+	/// 更新输入内容（IMM接口）
+	void UpdateInputContent(const HWND& hWnd);
 
-	void GetInputString(const HWND& hWnd);
+	/// Get result string and send it to game
+	/// 获取结果并且发送到游戏
+	void GetResultString(const HWND& hWnd);
 }

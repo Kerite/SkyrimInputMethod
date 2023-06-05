@@ -77,8 +77,6 @@ namespace Hooks
 		DH_DEBUG("Installing Present");
 		hook_Present->Enable();
 		hook_ResizeTarget->Enable();
-
-		Cicero::GetSingleton()->SetupSinks();
 	}
 
 	void RendererManager::Install()

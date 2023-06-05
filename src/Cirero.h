@@ -5,6 +5,7 @@
 #define CICERO_DISABLED 0
 #define CICERO_ENABLED 1
 
+// https://github.com/walbourn/directx-sdk-samples/blob/main/DXUT/Optional/ImeUi.cpp
 class Cicero :
 	public Singleton<Cicero>,
 	public ITfUIElementSink,
@@ -62,6 +63,8 @@ private:
 	DWORD m_threadMgrEventSinkCookie;
 
 	ULONG m_refCount;
+
+	bool m_bComInited;
 
 	HRESULT UpdateCurrentInputMethodName();
 	void UpdateState(DWORD dwProfileType, HKL hkl);

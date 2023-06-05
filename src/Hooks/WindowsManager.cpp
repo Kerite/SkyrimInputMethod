@@ -25,54 +25,53 @@ namespace Hooks
 			}
 			break;
 
-		case WM_INPUTLANGCHANGE:
-			DH_DEBUG("[WinProc WM_INPUTLANGCHANGE]");
-			break;
-
 		case WM_IME_NOTIFY:
-			pInGameIme->ProcessImeNotify(hWnd, wParam, lParam);
-			return 0;
+			switch (wParam) {
+			case IMN_OPENCANDIDATE:
+			case IMN_SETCANDIDATEPOS:
+			case IMN_CHANGECANDIDATE:
+				int token = rand();
+
+				DH_DEBUG("[WinProc IME_NOTIFY#{}] WPARAM: {:X}", token, wParam);
+				pInGameIme->bEnabled = IME_UI_ENABLED;
+				if (pControlMap->textEntryCount) {
+					Utils::UpdateCandidateList(hWnd);
+				}
+			}
+			return S_OK;
 
 		case WM_IME_STARTCOMPOSITION:
 			DH_DEBUG("[WinProc WM_IME_STARTCOMPOSITION]");
-			if (pControlMap->textEntryCount) {
-				// Focusing on a input area
-				InterlockedExchange(&pInGameIme->enableState, 1);
-				InterlockedExchange(&pInGameIme->disableKeyState, 1);
-
-				if (!pCicero->ciceroState) {
-					DEBUG("[WinProc$WM_IME_STARTCOMPOSITION] Cicero is disabled");
-				}
+			if (pControlMap->textEntryCount) {  // Focusing on a input area
+				pInGameIme->bEnabled = IME_UI_ENABLED;
+				pInGameIme->bDisableSpecialKey = TRUE;
 			}
 			return S_OK;
 
 		case WM_IME_COMPOSITION:
 			DH_DEBUG("[WinProc WM_IME_COMPOSITION]");
 			if (pControlMap->textEntryCount) {
-				if (lParam & GCS_CURSORPOS) {}
-				if (lParam & CS_INSERTCHAR) {}
-				if (lParam & GCS_COMPSTR && !pCicero->ciceroState)  // Only handle this message when TSF is disabled
-					Utils::GetInputString(hWnd);
+				if (lParam & GCS_COMPSTR)
+					Utils::UpdateInputContent(hWnd);
 				if (lParam & GCS_RESULTSTR)
 					Utils::GetResultString(hWnd);
 			}
 			return S_OK;
 
 		case WM_IME_ENDCOMPOSITION:
-			InterlockedExchange(&pInGameIme->enableState, 0);
+			DH_DEBUG("[WinProc WM_IME_ENDCOMPOSITION] Clearing candidate list and input content");
+			InterlockedExchange(&pInGameIme->bEnabled, FALSE);
 
-			if (!pCicero->ciceroState) {
-				pInGameIme->ime_critical_section.Enter();
-				DH_DEBUG("[WinProc WM_IME_ENDCOMPOSITION] Clearing InputContent and CandidateList");
-				pInGameIme->candidateList.clear();
-				pInGameIme->inputContent.clear();
-				pInGameIme->ime_critical_section.Leave();
-			}
+			pInGameIme->imeCriticalSection.Enter();
+			pInGameIme->candidateList.clear();
+			pInGameIme->inputContent.clear();
+			pInGameIme->imeCriticalSection.Leave();
+
 			if (pControlMap->textEntryCount) {
 				auto f = [=](UINT32 time) -> bool {
 					std::this_thread::sleep_for(std::chrono::milliseconds(time));
-					if (!InterlockedCompareExchange(&pInGameIme->enableState, pInGameIme->enableState, 2)) {
-						InterlockedExchange(&pInGameIme->disableKeyState, 0);
+					if (!pInGameIme->bEnabled) {
+						InterlockedExchange(&pInGameIme->bDisableSpecialKey, FALSE);
 					}
 					return true;
 				};
@@ -85,28 +84,21 @@ namespace Hooks
 
 		case WM_IME_SETSTATE:
 			if (lParam == WIME_STATE_ENABLE) {
-				DH_DEBUG("[WinPrc WM_IME_SETSTATE] Enable IME");
-				// Restore the default input method context of the window.
+				DH_DEBUG("[WinProc WM_IME_SETSTATE] Enable IME");
 				ImmAssociateContextEx(hWnd, NULL, IACE_DEFAULT);
 			} else {
-				DH_DEBUG("[WinPrc WM_IME_SETSTATE] Disable");
+				DH_DEBUG("[WinProc WM_IME_SETSTATE] Disable IME");
 				ImmAssociateContextEx(hWnd, NULL, NULL);
 			}
 			break;
 
-		case WM_KEYDOWN:
-			// https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-			if (wParam == VK_INSERT) {
-				DH_DEBUG("[WinProc WM_KEYDOWN] Insert key down, switching IME", uMsg, wParam);
-				DWORD threadId = GetWindowThreadProcessId(hWnd, NULL);
-				HKL inputContext = GetKeyboardLayout(threadId);
-				ActivateKeyboardLayout((HKL)((ULONG_PTR)inputContext + 1), 0);
-			}
-			break;
-
 		case WM_CHAR:
-			DH_DEBUG("[WinProc WM_CHAR] Msg: {} Param: {}", uMsg, wParam);
+			DH_DEBUG("[WinProc WM_CHAR] Param: {}", wParam);
 			if (pControlMap->textEntryCount) {
+				if (wParam == VK_SPACE && GetKeyState(VK_LWIN) < 0) {
+					ActivateKeyboardLayout((HKL)HKL_NEXT, KLF_SETFORPROCESS);
+					return S_OK;
+				}
 				Utils::SendUnicodeMessage(wParam);
 			}
 			return S_OK;
@@ -122,7 +114,7 @@ namespace Hooks
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 
-		DEBUG("Hooking WindowProc");
+		DH_DEBUG("Hooking WindowProc");
 		Utils::DetourAttach<WindowProc_Hook>(REL::ID(36649));
 
 		DetourTransactionCommit();

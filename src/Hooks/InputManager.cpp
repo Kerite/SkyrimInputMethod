@@ -1,5 +1,7 @@
 #include "Hooks/InputManager.h"
 
+#include "Hooks/WindowsManager.h"
+
 #include "Helpers/DebugHelper.h"
 #include "RE/CustomRE.h"
 #include "RE/Offset.h"
@@ -63,13 +65,12 @@ namespace Hooks
 			PostMessage(pInputMenu->hwnd, WM_IME_SETSTATE, NULL, 0);
 
 			// 清除候选词列表
-			pInputMenu->ime_critical_section.Enter();
+			pInputMenu->imeCriticalSection.Enter();
 			DH_DEBUG("(ProcessAllowTextInput) Clearing CandidateList")
 			pInputMenu->candidateList.clear();
 			pInputMenu->inputContent.clear();
-			pInputMenu->ime_critical_section.Leave();
-
-			InterlockedExchange(&pInputMenu->enableState, 0);
+			pInputMenu->bEnabled = IME_UI_DISABLED;
+			pInputMenu->imeCriticalSection.Leave();
 		} else if (increase && currentCount == 0) {
 			// 打开第一个输入窗口
 			DEBUG("Post WM_IME_SETSTATE ENABLE to {}", (uintptr_t)pInputMenu->hwnd);
@@ -83,15 +84,15 @@ namespace Hooks
 		using namespace RE;
 		using KeyCode = GFxKey::Code;
 		if (a_type == RE::UI_MESSAGE_TYPE::kScaleformEvent && a_data != nullptr) {
-			BSUIScaleformData* data = reinterpret_cast<BSUIScaleformData*>(a_data);
-			GFxEvent* event = data->scaleformEvent;
+			BSUIScaleformData* pData = reinterpret_cast<BSUIScaleformData*>(a_data);
+			GFxEvent* event = pData->scaleformEvent;
 
 			if (event->type == GFxEvent::EventType::kKeyDown && ControlMap::GetSingleton()->textEntryCount) {
 				// 按键事件
 				InGameIME* pInGameIme = InGameIME::GetSingleton();
 				GFxKeyEvent* key = static_cast<GFxKeyEvent*>(event);
 
-				if (InterlockedCompareExchange(&pInGameIme->disableKeyState, pInGameIme->disableKeyState, 2)) {
+				if (InterlockedCompareExchange(&pInGameIme->bDisableSpecialKey, pInGameIme->bDisableSpecialKey, 2)) {
 					static std::vector<uint32_t> ignored_keys{
 						KeyCode::kReturn,
 						KeyCode::kBackspace,
@@ -104,7 +105,7 @@ namespace Hooks
 					};
 					for (auto& ignored_key : ignored_keys) {
 						if (ignored_key == key->keyCode) {
-							DEBUG("(UIMessageQueue::AddMessage) Ignored key {}", ignored_key);
+							DH_DEBUG("[UIMessageQueue::AddMessage] Ignored key {}", ignored_key);
 							Utils::HeapFree(a_data);
 							return;
 						}
@@ -113,7 +114,7 @@ namespace Hooks
 			} else if (event->type == GFxEvent::EventType::kCharEvent) {
 				// 字符事件
 				GFxCharEvent* charEvent = static_cast<GFxCharEvent*>(event);
-				DH_DEBUG("(UIMessageQueue::AddMessage) Char Event, Code {}", (char)charEvent->wcharCode);
+				DH_DEBUG("[UIMessageQueue::AddMessage] Char Event, Code {}", (char)charEvent->wcharCode);
 				Utils::HeapFree(a_data);
 				return;
 			}

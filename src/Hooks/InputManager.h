@@ -5,8 +5,6 @@
 #include "Helpers/DebugHelper.h"
 #include "RE/Offset.h"
 
-#define WM_IME_SETSTATE 0x0655
-
 #define WIME_STATE_DISABLE 0
 #define WIME_STATE_ENABLE 1
 
