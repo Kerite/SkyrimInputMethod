@@ -2,5 +2,5 @@
 
 void Configs::Load() noexcept
 {
-	ini.LoadFile("Data\\SKSE\\Plugins\\SkyrimChineseInput.ini");
+	ini.LoadFile("Data\\SKSE\\Plugins\\SkyrimInputMethod.ini");
 }

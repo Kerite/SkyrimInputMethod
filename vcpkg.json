@@ -1,16 +1,15 @@
 {
-  "name": "skyrimchineseinput",
+  "name": "skyriminputmethod",
   "version-string": "1.0.0",
   "description": "",
   "license": "MIT",
   "dependencies": [
     "detours",
-    "directxtk",
     "spdlog"
   ],
   "features": {
     "mo2-install": {
-      "description": "SkyrimChineseInput"
+      "description": "SkyrimInputMethod"
     }
   }
 }

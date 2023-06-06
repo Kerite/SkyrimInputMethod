@@ -12,7 +12,7 @@ include(GNUInstallDirs)
 
 # info
 project(
-	SkyrimChineseInput
+	SkyrimInputMethod
 	VERSION 1.0.0
 	LANGUAGES CXX
 )

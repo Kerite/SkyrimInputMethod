@@ -3,10 +3,7 @@
 #include "Config.h"
 #include "Helpers/DebugHelper.h"
 #include "ICriticalSection.h"
-#include "Offsets.h"
 #include "Utils.h"
-
-using namespace DirectX;
 
 InGameIME::InGameIME() :
 	bEnabled(false),
