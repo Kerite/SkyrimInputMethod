@@ -133,7 +133,12 @@ HRESULT InGameIME::OnRender()
 				// 填充背景
 				m_pBackBufferRT->FillRoundedRectangle(m_widgetRect, m_pBackgroundBrush);
 				// 绘制标题
-				m_pBackBufferRT->DrawTextW(currentMethodName.c_str(), currentMethodName.size(), pHeaderFormat, m_headerRect, m_pHeaderColorBrush);
+				m_pBackBufferRT->DrawTextW(
+					currentMethodName.size() ? currentMethodName.c_str() : L"Skyrim IME",
+					currentMethodName.size() ? currentMethodName.size() : lstrlen(L"Skyrim IME"),
+					pHeaderFormat,
+					m_headerRect,
+					m_pHeaderColorBrush);
 				// 绘制输入内容
 				m_pBackBufferRT->DrawTextW(text, lstrlen(text), pInputContentFormat, m_inputContentRect, m_pInputContentBrush);
 

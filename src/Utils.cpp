@@ -206,6 +206,19 @@ namespace Utils
 		DH_DEBUG("[Utils::GetResultString] == Finish ==\n");
 	}
 
+	void UpdateInputMethodName(HKL hkl)
+	{
+		if (Cicero::GetSingleton()->bCOMInitialized) {
+			return;
+		}
+		WCHAR buffer[MAX_PATH];
+		ZeroMemory(buffer, MAX_PATH);
+		UINT uByteLength = ImmGetIMEFileNameW(hkl, NULL, 0);
+		ImmGetIMEFileNameW(hkl, buffer, uByteLength);
+		InGameIME::GetSingleton()->currentMethodName = std::wstring(buffer);
+		DH_DEBUGW(L"Method Name: {}", InGameIME::GetSingleton()->currentMethodName);
+	}
+
 	bool SendUnicodeMessage(UINT32 code)
 	{
 		// Ignore '`' and '¡¤'

@@ -48,6 +48,7 @@ public:
 	void UpdateCandidateList(ITfCandidateListUIElement* lpCandidate);
 
 	bool ciceroState;
+	bool bCOMInitialized;
 
 private:
 	TfClientId m_clientID;
@@ -64,7 +65,6 @@ private:
 
 	ULONG m_refCount;
 
-	bool m_bComInited;
 
 	HRESULT UpdateCurrentInputMethodName();
 	void UpdateState(DWORD dwProfileType, HKL hkl);

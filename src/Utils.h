@@ -50,6 +50,8 @@ namespace Utils
 	/// 更新输入内容（IMM接口）
 	void UpdateInputContent(const HWND& hWnd);
 
+	void UpdateInputMethodName(HKL hkl);
+
 	/// Get result string and send it to game
 	/// 获取结果并且发送到游戏
 	void GetResultString(const HWND& hWnd);

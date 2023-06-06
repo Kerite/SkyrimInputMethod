@@ -40,6 +40,10 @@ namespace Hooks
 			}
 			return S_OK;
 
+		case WM_INPUTLANGCHANGE:
+			Utils::UpdateInputMethodName((HKL)lParam);
+			break;
+
 		case WM_IME_STARTCOMPOSITION:
 			DH_DEBUG("[WinProc WM_IME_STARTCOMPOSITION]");
 			if (pControlMap->textEntryCount) {  // Focusing on a input area

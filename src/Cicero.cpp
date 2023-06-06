@@ -28,7 +28,7 @@ bool GetLayoutName(const WCHAR* kl, WCHAR* nm)
 }
 
 Cicero::Cicero() :
-	m_bComInited(false),
+	bCOMInitialized(false),
 	ciceroState(CICERO_DISABLED),
 	m_pProfileMgr(nullptr),
 	m_pProfiles(nullptr),
@@ -89,7 +89,7 @@ HRESULT Cicero::SetupSinks()
 	ITfSource* pSource = nullptr;
 	DH_INFO("[TSF] Initializing Cicero");
 
-	if (!m_bComInited) {
+	if (!bCOMInitialized) {
 		hr = CoInitializeEx(NULL, ::COINIT_APARTMENTTHREADED);
 	}
 	if (SUCCEEDED(hr)) {
@@ -130,7 +130,7 @@ HRESULT Cicero::SetupSinks()
 		hr = UpdateCurrentInputMethodName();
 	}
 	if (SUCCEEDED(hr)) {
-		m_bComInited = true;
+		bCOMInitialized = true;
 		DH_INFO("[TSF] Set-up Successful");
 	} else {
 		DH_INFO("!!![TSF] Set-up Failed, Result: 0x{:X}, processed code blocks: {}", (ULONG)hr, processedCodeBlock);
@@ -162,7 +162,7 @@ void Cicero::ReleaseSinks()
 		SafeRelease(&m_pThreadMgrEx);
 	}
 	CoUninitialize();
-	m_bComInited = false;
+	bCOMInitialized = false;
 	INFO("[Cicero] Released Sinks");
 }
 
