@@ -4,20 +4,20 @@
 
 #include "Cirero.h"
 #include "Helpers/DebugHelper.h"
-#include "InGameIme.h"
+#include "InputPanel.h"
 #include "Utils.h"
 
 namespace Hooks
 {
 	HRESULT WINAPI IDXGISwapChain_Present(IDXGISwapChain* a_this, UINT a_syncInterval, UINT a_flags);
 	REL::Relocation<decltype(IDXGISwapChain_Present)> old_IDXGISwapChain_Present;
-	HRESULT WINAPI IDXGISwapChain_Present(IDXGISwapChain* a_this, UINT a_syncInterval, UINT a_flags)
+	HRESULT WINAPI IDXGISwapChain_Present(IDXGISwapChain* a_pThis, UINT a_syncInterval, UINT a_flags)
 	{
-		InGameIME* pInGameIme = InGameIME::GetSingleton();
+		IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 
-		pInGameIme->OnRender();
+		pIMEPanel->OnRender();
 
-		return old_IDXGISwapChain_Present(a_this, a_syncInterval, a_flags);
+		return old_IDXGISwapChain_Present(a_pThis, a_syncInterval, a_flags);
 	}
 
 	HRESULT WINAPI IDXGISwapChain_ResizeTarget(IDXGISwapChain* a_pThis, const DXGI_MODE_DESC* a_pNewTargetParameters);
@@ -26,20 +26,20 @@ namespace Hooks
 	{
 		HRESULT hr = old_IDXGISwapChain_ResizeTarget(a_pThis, a_pNewTargetParameters);
 		if (SUCCEEDED(hr)) {
-			InGameIME* pInGameIme = InGameIME::GetSingleton();
-			hr = pInGameIme->OnResizeTarget();
+			IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
+			hr = pIMEPanel->OnResizeTarget();
 		}
 		return hr;
 	}
 
 	HRESULT WINAPI RendererManager::DLL_D3D11_D3D11CreateDeviceAndSwapChain_Hook::hooked(
 		IDXGIAdapter* a_pAdapter,
-		D3D_DRIVER_TYPE a_driverType,
-		HMODULE a_software,
-		UINT a_flags,
+		D3D_DRIVER_TYPE a_eDriverType,
+		HMODULE a_hSoftware,
+		UINT a_uFlags,
 		const D3D_FEATURE_LEVEL* a_pFeatureLevels,
-		UINT a_featureLevels,
-		UINT a_sdkVersion,
+		UINT a_uiFeatureLevels,
+		UINT a_uiSdkVersion,
 		const DXGI_SWAP_CHAIN_DESC* a_pSwapChainDesc,
 		IDXGISwapChain** a_ppSwapChain,
 		ID3D11Device** a_ppDevice,
@@ -48,9 +48,9 @@ namespace Hooks
 	{
 		DH_INFO("Creating D3D Devices and SwapChain using D3D11_CREATE_DEVICE_BGRA_SUPPORT flag");
 		return oldFunc(
-			a_pAdapter, a_driverType, a_software,
-			a_flags | D3D11_CREATE_DEVICE_BGRA_SUPPORT, a_pFeatureLevels, a_featureLevels,
-			a_sdkVersion, a_pSwapChainDesc, a_ppSwapChain,
+			a_pAdapter, a_eDriverType, a_hSoftware,
+			a_uFlags | D3D11_CREATE_DEVICE_BGRA_SUPPORT, a_pFeatureLevels, a_uiFeatureLevels,
+			a_uiSdkVersion, a_pSwapChainDesc, a_ppSwapChain,
 			a_ppDevice, a_pFeatureLevel, a_ppImmediateContext);
 	}
 
@@ -59,24 +59,23 @@ namespace Hooks
 		DH_DEBUG("Calling origin Init3D");
 		oldFunc();
 
-		auto renderer = RE::BSGraphics::Renderer::GetSingleton();
-		auto in_game_ime = InGameIME::GetSingleton();
+		auto pRenderer = RE::BSGraphics::Renderer::GetSingleton();
+		IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 
-		IDXGISwapChain* swapChain = renderer->data.renderWindows[0].swapChain;
-		ID3D11Device* device = renderer->data.forwarder;
-		ID3D11DeviceContext* device_context = renderer->data.context;
+		IDXGISwapChain* pDXGISwapChain = pRenderer->data.renderWindows[0].swapChain;
+		//ID3D11Device* pD3DDevice = pRenderer->data.forwarder;
+		//ID3D11DeviceContext* pD3DDeviceContext = pRenderer->data.context;
 
-		in_game_ime->Initialize(swapChain, device, device_context);
-
-		auto hook_Present = dku::Hook::AddVMTHook(swapChain, 8, FUNC_INFO(IDXGISwapChain_Present));
-		auto hook_ResizeTarget = dku::Hook::AddVMTHook(swapChain, 14, FUNC_INFO(IDXGISwapChain_ResizeTarget));
-
-		old_IDXGISwapChain_Present = REL::Relocation<decltype(IDXGISwapChain_Present)>(hook_Present->OldAddress);
-		old_IDXGISwapChain_ResizeTarget = REL::Relocation<decltype(IDXGISwapChain_ResizeTarget)>(hook_ResizeTarget->OldAddress);
+		pIMEPanel->Initialize(pDXGISwapChain);
 
 		DH_INFO("Installing Present hook");
+		auto hook_Present = dku::Hook::AddVMTHook(pDXGISwapChain, 8, FUNC_INFO(IDXGISwapChain_Present));
+		old_IDXGISwapChain_Present = REL::Relocation<decltype(IDXGISwapChain_Present)>(hook_Present->OldAddress);
 		hook_Present->Enable();
+
 		DH_INFO("Installing ResizeTarget hook");
+		auto hook_ResizeTarget = dku::Hook::AddVMTHook(pDXGISwapChain, 14, FUNC_INFO(IDXGISwapChain_ResizeTarget));
+		old_IDXGISwapChain_ResizeTarget = REL::Relocation<decltype(IDXGISwapChain_ResizeTarget)>(hook_ResizeTarget->OldAddress);
 		hook_ResizeTarget->Enable();
 	}
 
@@ -88,17 +87,15 @@ namespace Hooks
 		DH_INFO("Installing Renderer_Init_InitD3D hook");
 		Utils::WriteCall<Renderer_Init_InitD3D_Hook>(REL::RelocationID(75595, 77226).address() + REL::Relocate(0x50, 0x2BC));
 
-		DH_INFO("Installing D3D11CreateDeviceAndSwapChain hook");
-		{
-			auto hook = dku::Hook::AddIATHook(
-				name,
-				"d3d11.dll",
-				"D3D11CreateDeviceAndSwapChain",
-				FUNC_INFO(DLL_D3D11_D3D11CreateDeviceAndSwapChain_Hook::hooked));
-			DLL_D3D11_D3D11CreateDeviceAndSwapChain_Hook::oldFunc =
-				REL::Relocation<decltype(DLL_D3D11_D3D11CreateDeviceAndSwapChain_Hook::hooked)>(hook->OldAddress);
-			hook->Enable();
-		}
+		DH_INFO("Installing D3D11CreateDeviceAndSwapChain@d3d11.dll hook");
+		auto hook = dku::Hook::AddIATHook(
+			name,
+			"d3d11.dll",
+			"D3D11CreateDeviceAndSwapChain",
+			FUNC_INFO(DLL_D3D11_D3D11CreateDeviceAndSwapChain_Hook::hooked));
+		DLL_D3D11_D3D11CreateDeviceAndSwapChain_Hook::oldFunc =
+			REL::Relocation<decltype(DLL_D3D11_D3D11CreateDeviceAndSwapChain_Hook::hooked)>(hook->OldAddress);
+		hook->Enable();
 
 		INFO("Installed RendererManager");
 	}

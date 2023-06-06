@@ -5,14 +5,14 @@
 #include "Cirero.h"
 #include "Helpers/DebugHelper.h"
 #include "Hooks/InputManager.h"
-#include "InGameIme.h"
+#include "InputPanel.h"
 #include "Utils.h"
 
 namespace Hooks
 {
 	HRESULT __fastcall WindowsManager::WindowProc_Hook::hooked(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		InGameIME* pInGameIme = InGameIME::GetSingleton();
+		IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 		RE::ControlMap* pControlMap = RE::ControlMap::GetSingleton();
 		auto main = RE::Main::GetSingleton();
 		Cicero* pCicero = Cicero::GetSingleton();
@@ -21,7 +21,7 @@ namespace Hooks
 		case WM_ACTIVATE:
 			if (wParam == WA_ACTIVE) {
 				DH_DEBUG("[WinProc WM_ACTIVATE] Window Activated");
-				pInGameIme->inputContent = std::wstring();
+				pIMEPanel->wstrComposition = std::wstring();
 			}
 			break;
 
@@ -33,7 +33,7 @@ namespace Hooks
 				int token = rand();
 
 				DH_DEBUG("[WinProc IME_NOTIFY#{}] WPARAM: {:X}", token, wParam);
-				pInGameIme->bEnabled = IME_UI_ENABLED;
+				pIMEPanel->bEnabled = IME_UI_ENABLED;
 				if (pControlMap->textEntryCount) {
 					Utils::UpdateCandidateList(hWnd);
 				}
@@ -47,35 +47,39 @@ namespace Hooks
 		case WM_IME_STARTCOMPOSITION:
 			DH_DEBUG("[WinProc WM_IME_STARTCOMPOSITION]");
 			if (pControlMap->textEntryCount) {  // Focusing on a input area
-				pInGameIme->bEnabled = IME_UI_ENABLED;
-				pInGameIme->bDisableSpecialKey = TRUE;
+				pIMEPanel->bEnabled = IME_UI_ENABLED;
+				pIMEPanel->bDisableSpecialKey = TRUE;
 			}
 			return S_OK;
 
 		case WM_IME_COMPOSITION:
-			DH_DEBUG("[WinProc WM_IME_COMPOSITION]");
 			if (pControlMap->textEntryCount) {
-				if (lParam & GCS_COMPSTR)
-					Utils::UpdateInputContent(hWnd);
-				if (lParam & GCS_RESULTSTR)
+				// According ImeUI.cpp in DXUT, GCS_RESULTSTR Must
+				if (lParam & GCS_RESULTSTR) {
+					DH_DEBUG("[WinProc WM_IME_COMPOSITION] Updating Result String");
 					Utils::GetResultString(hWnd);
+				}
+				if (lParam & GCS_COMPSTR) {
+					DH_DEBUG("[WinProc WM_IME_COMPOSITION] Updating Composition String");
+					Utils::UpdateInputContent(hWnd);
+				}
 			}
 			return S_OK;
 
 		case WM_IME_ENDCOMPOSITION:
 			DH_DEBUG("[WinProc WM_IME_ENDCOMPOSITION] Clearing candidate list and input content");
-			InterlockedExchange(&pInGameIme->bEnabled, FALSE);
+			InterlockedExchange(&pIMEPanel->bEnabled, FALSE);
 
-			pInGameIme->imeCriticalSection.Enter();
-			pInGameIme->candidateList.clear();
-			pInGameIme->inputContent.clear();
-			pInGameIme->imeCriticalSection.Leave();
+			pIMEPanel->csImeInformation.Enter();
+			pIMEPanel->vwsCandidateList.clear();
+			pIMEPanel->wstrComposition.clear();
+			pIMEPanel->csImeInformation.Leave();
 
 			if (pControlMap->textEntryCount) {
 				auto f = [=](UINT32 time) -> bool {
 					std::this_thread::sleep_for(std::chrono::milliseconds(time));
-					if (!pInGameIme->bEnabled) {
-						InterlockedExchange(&pInGameIme->bDisableSpecialKey, FALSE);
+					if (!pIMEPanel->bEnabled) {
+						InterlockedExchange(&pIMEPanel->bDisableSpecialKey, FALSE);
 					}
 					return true;
 				};
@@ -118,7 +122,7 @@ namespace Hooks
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 
-		DH_DEBUG("Hooking WindowProc");
+		DH_INFO("Installing WindowProc Hook");
 		Utils::DetourAttach<WindowProc_Hook>(REL::ID(36649));
 
 		DetourTransactionCommit();

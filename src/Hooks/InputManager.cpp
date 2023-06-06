@@ -1,30 +1,16 @@
 #include "Hooks/InputManager.h"
 
-#include "Hooks/WindowsManager.h"
-
-#include "Helpers/DebugHelper.h"
-#include "RE/CustomRE.h"
-#include "RE/Offset.h"
 #include "detours/Detours.h"
 
-#include "InGameIme.h"
+#include "Helpers/DebugHelper.h"
+#include "Hooks/WindowsManager.h"
+#include "InputPanel.h"
+#include "RE/CustomRE.h"
+#include "RE/Offset.h"
 #include "Utils.h"
 
 namespace Hooks
 {
-	HRESULT WINAPI InputManager::DLL_DInput8_DirectInput8Create_Hook::hooked(HINSTANCE instance, DWORD version, REFIID iid, void* out, IUnknown* outer)
-	{
-		IDirectInput8A* pDinput8 = nullptr;
-		HRESULT hr = oldFunc(instance, version, iid, &pDinput8, outer);
-		if (hr != S_OK)
-			return hr;
-		*((IDirectInput8A**)out) = new SCIDirectInput(pDinput8);
-
-		DH_INFO("Hooked DirectInput8Create@dinput8.dll");
-
-		return S_OK;
-	}
-
 	void InputManager::Install()
 	{
 		char name[MAX_PATH] = "\0";
@@ -32,50 +18,60 @@ namespace Hooks
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 
-		INFO("Installing ControlMap::AllowTextInput Hook");
+		DH_INFO("Installing ControlMap::AllowTextInput Hook");
 		Utils::DetourAttach<ControlMap_AllowTextInput_Hook>(RE::Offset::ControlMap::AllowTextInput);
 
 		DetourTransactionCommit();
 
-		INFO("Installing UIMessageQueue::AddMessage Hook at 82182+0x7D");
+		DH_INFO("Installing UIMessageQueue::AddMessage Hook at 82182+0x7D");
 		Utils::WriteCall<UIMessageQueue_AddMessage_Hook>(REL::RelocationID(0, 82182).address() + REL::Relocate(0, 0x7D));
 		GetModuleHandle(NULL);
 
-		INFO("Installing dinput8.dll DirectInput8Create Hook");
+		DH_INFO("Installing dinput8.dll DirectInput8Create Hook");
 		auto hook = DKUtil::Hook::AddIATHook(name, "dinput8.dll", "DirectInput8Create", FUNC_INFO(DLL_DInput8_DirectInput8Create_Hook::hooked));
 		DLL_DInput8_DirectInput8Create_Hook::oldFunc = REL::Relocation<decltype(DLL_DInput8_DirectInput8Create_Hook::hooked)>(hook->OldAddress);
 		hook->Enable();
 	}
 
-	void InputManager::ProcessAllowTextInput(bool increase)
+	HRESULT WINAPI InputManager::DLL_DInput8_DirectInput8Create_Hook::hooked(HINSTANCE a_hInstance, DWORD a_dwVersion, REFIID a_id, void* a_pvOut, IUnknown* a_pOuter)
 	{
-		DEBUG("ProcessAllowTextInput ({} InputBox)", increase ? "Open" : "Close");
+		IDirectInput8A* pDinput8 = nullptr;
+		HRESULT hr = oldFunc(a_hInstance, a_dwVersion, a_id, &pDinput8, a_pOuter);
+		if (hr != S_OK)
+			return hr;
+		*((IDirectInput8A**)a_pvOut) = new SCIDirectInput(pDinput8);
+
+		DH_INFO("Hooked DirectInput8Create@dinput8.dll");
+
+		return S_OK;
+	}
+
+	void InputManager::ProcessAllowTextInput(bool a_bOpenInput)
+	{
+		DEBUG("ProcessAllowTextInput ({} InputBox)", a_bOpenInput ? "Open" : "Close");
 
 		auto pControlMap = RE::ControlMap::GetSingleton();
 		auto pInputManager = InputManager::GetSingleton();
-		auto game_main = RE::Main::GetSingleton();
-		auto pInputMenu = InGameIME::GetSingleton();
+		auto pMain = RE::Main::GetSingleton();
+		auto pIMEPanel = IMEPanel::GetSingleton();
 
 		std::uint8_t currentCount = pControlMap->textEntryCount;
 
-		if (!increase && currentCount == 1) {
-			// 退出最后一个输入窗口
-			DEBUG("Post WM_IME_SETSTATE DISABLE to {}", (uintptr_t)pInputMenu->hwnd);
-			// 禁用输入法
-			PostMessage(pInputMenu->hwnd, WM_IME_SETSTATE, NULL, 0);
+		if (!a_bOpenInput && currentCount == 1) {
+			DEBUG("Post WM_IME_SETSTATE DISABLE to {}", (uintptr_t)pIMEPanel->hWindow);
+			// Disable IME
+			PostMessage(pIMEPanel->hWindow, WM_IME_SETSTATE, NULL, 0);
 
-			// 清除候选词列表
-			pInputMenu->imeCriticalSection.Enter();
+			pIMEPanel->csImeInformation.Enter();
 			DH_DEBUG("(ProcessAllowTextInput) Clearing CandidateList")
-			pInputMenu->candidateList.clear();
-			pInputMenu->inputContent.clear();
-			pInputMenu->bEnabled = IME_UI_DISABLED;
-			pInputMenu->imeCriticalSection.Leave();
-		} else if (increase && currentCount == 0) {
-			// 打开第一个输入窗口
-			DEBUG("Post WM_IME_SETSTATE ENABLE to {}", (uintptr_t)pInputMenu->hwnd);
-			// 启用输入法
-			PostMessage(pInputMenu->hwnd, WM_IME_SETSTATE, NULL, 1);
+			pIMEPanel->vwsCandidateList.clear();
+			pIMEPanel->wstrComposition.clear();
+			pIMEPanel->bEnabled = IME_UI_DISABLED;
+			pIMEPanel->csImeInformation.Leave();
+		} else if (a_bOpenInput && currentCount == 0) {
+			DEBUG("Post WM_IME_SETSTATE ENABLE to {}", (uintptr_t)pIMEPanel->hWindow);
+			// Enable IME
+			PostMessage(pIMEPanel->hWindow, WM_IME_SETSTATE, NULL, 1);
 		}
 	}
 
@@ -88,11 +84,10 @@ namespace Hooks
 			GFxEvent* event = pData->scaleformEvent;
 
 			if (event->type == GFxEvent::EventType::kKeyDown && ControlMap::GetSingleton()->textEntryCount) {
-				// 按键事件
-				InGameIME* pInGameIme = InGameIME::GetSingleton();
+				IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 				GFxKeyEvent* key = static_cast<GFxKeyEvent*>(event);
 
-				if (InterlockedCompareExchange(&pInGameIme->bDisableSpecialKey, pInGameIme->bDisableSpecialKey, 2)) {
+				if (InterlockedCompareExchange(&pIMEPanel->bDisableSpecialKey, pIMEPanel->bDisableSpecialKey, 2)) {
 					static std::vector<uint32_t> ignored_keys{
 						KeyCode::kReturn,
 						KeyCode::kBackspace,
@@ -112,9 +107,8 @@ namespace Hooks
 					}
 				}
 			} else if (event->type == GFxEvent::EventType::kCharEvent) {
-				// 字符事件
-				GFxCharEvent* charEvent = static_cast<GFxCharEvent*>(event);
-				DH_DEBUG("[UIMessageQueue::AddMessage] Char Event, Code {}", (char)charEvent->wcharCode);
+				GFxCharEvent* pCharEvent = static_cast<GFxCharEvent*>(event);
+				DH_DEBUG("[UIMessageQueue::AddMessage] Char Event, Code {}", (char)pCharEvent->wcharCode);
 				Utils::HeapFree(a_data);
 				return;
 			}
@@ -124,7 +118,7 @@ namespace Hooks
 
 	HRESULT WINAPI SCIDirectInputDevice::SetCooperativeLevel(HWND a1, DWORD a2) noexcept
 	{
-		if (m_deviceType == kKeyboard) {
+		if (m_eDeviceType == kKeyboard) {
 			return m_pOriginDevice->SetCooperativeLevel(a1, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND | DISCL_NOWINKEY);
 		} else {
 			return m_pOriginDevice->SetCooperativeLevel(a1, DISCL_EXCLUSIVE | DISCL_FOREGROUND);
@@ -133,48 +127,48 @@ namespace Hooks
 
 	ULONG WINAPI SCIDirectInputDevice::AddRef() noexcept
 	{
-		m_refs++;
-		return m_refs;
+		m_ulRefs++;
+		return m_ulRefs;
 	}
 
 	ULONG WINAPI SCIDirectInputDevice::Release() noexcept
 	{
-		m_refs--;
-		if (!m_refs) {
+		m_ulRefs--;
+		if (!m_ulRefs) {
 			m_pOriginDevice->Release();
 			delete this;
 			return 0;
 		}
-		return m_refs;
+		return m_ulRefs;
 	}
 
 	ULONG WINAPI SCIDirectInput::AddRef(void) noexcept
 	{
-		m_refs++;
-		return m_refs;
+		m_ulRefs++;
+		return m_ulRefs;
 	}
 
 	ULONG WINAPI SCIDirectInput::Release(void) noexcept
 	{
-		m_refs--;
-		if (!m_refs) {
+		m_ulRefs--;
+		if (!m_ulRefs) {
 			m_pOrigin->Release();
 			delete this;
 			return 0;
 		}
-		return m_refs;
+		return m_ulRefs;
 	}
 
-	HRESULT WINAPI SCIDirectInput::CreateDevice(REFGUID a_type, LPDIRECTINPUTDEVICE8A* a_pDevice, LPUNKNOWN unused) noexcept
+	HRESULT WINAPI SCIDirectInput::CreateDevice(REFGUID a_gidType, LPDIRECTINPUTDEVICE8A* a_pDevice, LPUNKNOWN unused) noexcept
 	{
-		if (a_type != GUID_SysKeyboard && a_type != GUID_SysMouse) {
-			return m_pOrigin->CreateDevice(a_type, a_pDevice, unused);
+		if (a_gidType != GUID_SysKeyboard && a_gidType != GUID_SysMouse) {
+			return m_pOrigin->CreateDevice(a_gidType, a_pDevice, unused);
 		} else {
 			IDirectInputDevice8A* device;
-			HRESULT hr = m_pOrigin->CreateDevice(a_type, &device, unused);
+			HRESULT hr = m_pOrigin->CreateDevice(a_gidType, &device, unused);
 			if (hr != S_OK)
 				return hr;
-			*a_pDevice = new SCIDirectInputDevice(device, a_type == GUID_SysKeyboard ? SCIDirectInputDevice::kKeyboard : SCIDirectInputDevice::kMouse);
+			*a_pDevice = new SCIDirectInputDevice(device, a_gidType == GUID_SysKeyboard ? SCIDirectInputDevice::kKeyboard : SCIDirectInputDevice::kMouse);
 			return hr;
 		}
 	}

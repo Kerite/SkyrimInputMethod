@@ -15,7 +15,7 @@ public:
 
 	float GetHeaderFontSize()
 	{
-		return ini.GetDoubleValue(L"Font", L"header-size", 18.0f);
+		return ini.GetDoubleValue(L"Font", L"fHeader-size", 18.0f);
 	}
 
 	float GetInputFontSize()
@@ -30,12 +30,12 @@ public:
 
 	float GetX()
 	{
-		return ini.GetDoubleValue(L"Position", L"x", 30.0f);
+		return ini.GetDoubleValue(L"Position", L"fX", 30.0f);
 	}
 
 	float GetY()
 	{
-		return ini.GetDoubleValue(L"Position", L"y", 35.0f);
+		return ini.GetDoubleValue(L"Position", L"fY", 35.0f);
 	}
 
 	bool GetDebugMode()

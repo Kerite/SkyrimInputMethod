@@ -12,11 +12,12 @@ namespace Hooks
 
 		inline static REL::Relocation<decltype(&RegisterScaleformFunctions)> _SetViewScaleMode;
 		RE::GFxMovie* _movie = nullptr;
+
+		class SKSEScaleform_AllowTextInput : public RE::GFxFunctionHandler
+		{
+		public:
+			void Call(Params& a_params) override;
+		};
 	};
 
-	class SKSEScaleform_AllowTextInput : public RE::GFxFunctionHandler
-	{
-	public:
-		void Call(Params& a_params) override;
-	};
 }

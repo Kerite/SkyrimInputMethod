@@ -2,10 +2,12 @@
 
 #include <msctf.h>
 
-#define CICERO_DISABLED 0
-#define CICERO_ENABLED 1
+#define CICERO_DISABLE 0
+#define CICERO_ENABLE 1
 
 // https://github.com/walbourn/directx-sdk-samples/blob/main/DXUT/Optional/ImeUi.cpp
+// https://github.com/kassent/ChineseInput/blob/master/ChineseInput/Cicero.cpp
+// Cicero UI-Less Mode
 class Cicero :
 	public Singleton<Cicero>,
 	public ITfUIElementSink,
@@ -14,18 +16,18 @@ class Cicero :
 	public ITfThreadMgrEventSink
 {
 public:
-	// ITfUIElementSink
+	//ITfUIElementSink
 	STDMETHODIMP BeginUIElement(DWORD dwUIElementId, BOOL* pbShow);
 	STDMETHODIMP UpdateUIElement(DWORD dwUIElementId);
 	STDMETHODIMP EndUIElement(DWORD dwUIElementId);
 
-	// ITfTextEditSink
+	//ITfTextEditSink
 	STDMETHODIMP OnEndEdit(ITfContext* cxt, TfEditCookie ecReadOnly, ITfEditRecord* pEditRecord);
 
-	// ITfInputProcessorProfileActivationSink
+	//ITfInputProcessorProfileActivationSink
 	STDMETHODIMP OnActivated(DWORD dwProfileType, LANGID langid, REFCLSID clsid, REFGUID catid, REFGUID guidProfile, HKL hkl, DWORD dwFlags);
 
-	// ITfThreadMgrEventSink
+	//ITfThreadMgrEventSink
 	STDMETHODIMP OnInitDocumentMgr(ITfDocumentMgr* pdim);
 	STDMETHODIMP OnUninitDocumentMgr(ITfDocumentMgr* pdim);
 	STDMETHODIMP OnSetFocus(ITfDocumentMgr* pdimFocus, ITfDocumentMgr* pdimPrevFocus);
@@ -47,25 +49,25 @@ public:
 	ITfUIElement* GetUIElement(DWORD dwUIElementId);
 	void UpdateCandidateList(ITfCandidateListUIElement* lpCandidate);
 
-	bool ciceroState;
+	bool bCiceroState;
 	bool bCOMInitialized;
 
 private:
-	TfClientId m_clientID;
 	ITfThreadMgr* m_pThreadMgr;
 	ITfThreadMgrEx* m_pThreadMgrEx;
 	ITfInputProcessorProfiles* m_pProfiles;
 	ITfInputProcessorProfileMgr* m_pProfileMgr;
 	ITfContext* m_pBaseContext;
 
-	DWORD m_uiElementSinkCookie;
-	DWORD m_inputProcessorProfileActivationSinkCookie;
-	DWORD m_textEditSinkCookie;
-	DWORD m_threadMgrEventSinkCookie;
+	TfClientId m_dwClientID;
 
-	ULONG m_refCount;
+	DWORD m_dwUIElementSinkCookie;
+	DWORD m_dwInputProcessorProfileActivationSinkCookie;
+	DWORD m_dwTextEditSinkCookie;
+	DWORD m_dwThreadMgrEventSinkCookie;
 
+	ULONG m_lRefCount;
 
 	HRESULT UpdateCurrentInputMethodName();
-	void UpdateState(DWORD dwProfileType, HKL hkl);
+	void UpdateCiceroState(DWORD dwProfileType, HKL hkl);
 };

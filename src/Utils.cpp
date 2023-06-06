@@ -4,7 +4,7 @@
 
 #include "Cirero.h"
 #include "Config.h"
-#include "InGameIme.h"
+#include "InputPanel.h"
 #include "RE/CustomRE.h"
 
 #define BUFFER_SIZE 400
@@ -83,12 +83,12 @@ namespace Utils
 
 	void UpdateCandidateList(HWND hWnd)
 	{
-		if (Cicero::GetSingleton()->ciceroState) {
+		if (Cicero::GetSingleton()->bCiceroState) {
 			// When TFS is enabled, candidate list is fetched from TFS
 			return;
 		}
 		DH_DEBUG("[Utils::UpdateCandidateList] == Start ==");
-		InGameIME* pInGameIME = InGameIME::GetSingleton();
+		IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 		HIMC hIMC = ImmGetContext(hWnd);
 		if (hIMC == nullptr) {
 			DH_DEBUG("[Utils::UpdateCandidateList] == Finish == Context is null, cancel")
@@ -113,22 +113,22 @@ namespace Utils
 			DH_DEBUG("CandidateList dwCount: {}, dwSize: {}", pCandidateList->dwCount, pCandidateList->dwSize);
 			DH_DEBUG("CandidateList dwSelection: {}, dwPageStart: {}", pCandidateList->dwSelection, pCandidateList->dwPageStart);
 
-			InterlockedExchange(&pInGameIME->selectedIndex, pCandidateList->dwSelection);
-			InterlockedExchange(&pInGameIME->pageStartIndex, pCandidateList->dwPageStart);
+			InterlockedExchange(&pIMEPanel->ulSlectedIndex, pCandidateList->dwSelection);
+			InterlockedExchange(&pIMEPanel->ulPageStartIndex, pCandidateList->dwPageStart);
 
 			WCHAR buffer[MAX_PATH];
 
-			pInGameIME->imeCriticalSection.Enter();
-			pInGameIME->candidateList.clear();
+			pIMEPanel->csImeInformation.Enter();
+			pIMEPanel->vwsCandidateList.clear();
 			for (int i = 0; i < pCandidateList->dwCount && i < pCandidateList->dwPageSize && i < Configs::GetSingleton()->GetCandidateSize(); i++) {
 				wsprintf(buffer, L"%d.", i + 1);
 				WCHAR* pSubStr = (WCHAR*)((BYTE*)pCandidateList.get() + pCandidateList->dwOffset[i + pCandidateList->dwPageStart]);
 				std::wstring temp(buffer);
 				temp += pSubStr;
-				pInGameIME->candidateList.push_back(temp);
+				pIMEPanel->vwsCandidateList.push_back(temp);
 				DH_DEBUGW(L"(IMM) {}", temp);
 			}
-			pInGameIME->imeCriticalSection.Leave();
+			pIMEPanel->csImeInformation.Leave();
 		}
 		ImmReleaseContext(hWnd, hIMC);
 		DH_DEBUG("[Utils::UpdateCandidateList] == Finish ==\n");
@@ -136,11 +136,11 @@ namespace Utils
 
 	void UpdateInputContent(const HWND& hWnd)
 	{
-		if (Cicero::GetSingleton()->ciceroState) {
+		if (Cicero::GetSingleton()->bCiceroState) {
 			// When TFS is enabled, candidate list is fetched from TFS
 			return;
 		}
-		InGameIME* pIme = InGameIME::GetSingleton();
+		IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 		HIMC hImc = ImmGetContext(hWnd);
 		LONG uNeededBytes, uStrLen;
 		DH_DEBUG("= START FUNC = Utils::UpdateInputContent");
@@ -159,10 +159,10 @@ namespace Utils
 			LONG writedBytes = ImmGetCompositionString(hImc, GCS_COMPSTR, szCompStr.get(), uNeededBytes);
 			szCompStr[uStrLen - 1] = '\0';
 
-			pIme->imeCriticalSection.Enter();
-			pIme->inputContent = std::wstring(szCompStr.get());
-			DH_DEBUGW(L"(IMM) Update InputContent: {}, Length: {}", pIme->inputContent, pIme->inputContent.size());
-			pIme->imeCriticalSection.Leave();
+			pIMEPanel->csImeInformation.Enter();
+			pIMEPanel->wstrComposition = std::wstring(szCompStr.get());
+			DH_DEBUGW(L"(IMM) Update InputContent: {}, Length: {}", pIMEPanel->wstrComposition, pIMEPanel->wstrComposition.size());
+			pIMEPanel->csImeInformation.Leave();
 		} else {
 			DH_DEBUG("Allocation of szCompStr Failed");
 		}
@@ -215,14 +215,14 @@ namespace Utils
 		ZeroMemory(buffer, MAX_PATH);
 		UINT uByteLength = ImmGetIMEFileNameW(hkl, NULL, 0);
 		ImmGetIMEFileNameW(hkl, buffer, uByteLength);
-		InGameIME::GetSingleton()->currentMethodName = std::wstring(buffer);
-		DH_DEBUGW(L"Method Name: {}", InGameIME::GetSingleton()->currentMethodName);
+		IMEPanel::GetSingleton()->wstrInputMethodName = std::wstring(buffer);
+		DH_DEBUGW(L"[Utils::UpdateInputMethodName] Method Name: {}", IMEPanel::GetSingleton()->wstrInputMethodName);
 	}
 
 	bool SendUnicodeMessage(UINT32 code)
 	{
-		// Ignore '`' and '¡¤'
-		if (code == '`' || code == '¡¤') {
+		// Ignore '`' and '¡¤', for console
+		if (code == 96 || code == 183) {
 			return false;
 		}
 

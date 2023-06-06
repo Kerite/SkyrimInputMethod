@@ -53,7 +53,7 @@ namespace Hooks
 
 		struct DLL_DInput8_DirectInput8Create_Hook
 		{
-			static HRESULT WINAPI hooked(HINSTANCE instance, DWORD version, REFIID iid, void* out, IUnknown* outer);
+			static HRESULT WINAPI hooked(HINSTANCE a_hInstance, DWORD a_dwVersion, REFIID a_id, void* a_pvOut, IUnknown* a_pOuter);
 			static inline REL::Relocation<decltype(hooked)> oldFunc;
 		};
 	};
@@ -68,7 +68,7 @@ namespace Hooks
 		};
 
 		SCIDirectInputDevice(IDirectInputDevice8A* a_pDevice, DeviceType a_deviceType) :
-			m_pOriginDevice(a_pDevice), m_deviceType(a_deviceType), m_refs(1) {}
+			m_pOriginDevice(a_pDevice), m_eDeviceType(a_deviceType), m_ulRefs(1) {}
 
 		HRESULT WINAPI SetCooperativeLevel(HWND a1, DWORD a2) noexcept;
 		ULONG WINAPI AddRef() noexcept;
@@ -105,16 +105,16 @@ namespace Hooks
 		HRESULT WINAPI GetImageInfo(LPDIDEVICEIMAGEINFOHEADERA a1) noexcept { return m_pOriginDevice->GetImageInfo(a1); }
 
 	private:
-		DeviceType m_deviceType;
+		DeviceType m_eDeviceType;
 		IDirectInputDevice8A* m_pOriginDevice;
-		ULONG m_refs;
+		ULONG m_ulRefs;
 	};
 
 	class SCIDirectInput : public IDirectInput8A
 	{
 	public:
 		SCIDirectInput(IDirectInput8A* a_pOrigin) :
-			m_pOrigin(a_pOrigin), m_refs(1) {}
+			m_pOrigin(a_pOrigin), m_ulRefs(1) {}
 
 		HRESULT WINAPI QueryInterface(REFIID riid, LPVOID* ppvObj) noexcept { return m_pOrigin->QueryInterface(riid, ppvObj); }
 		ULONG WINAPI AddRef(void) noexcept;
@@ -132,7 +132,7 @@ namespace Hooks
 		HRESULT WINAPI ConfigureDevices(LPDICONFIGUREDEVICESCALLBACK a1, LPDICONFIGUREDEVICESPARAMSA a2, DWORD a3, LPVOID a4) noexcept { return m_pOrigin->ConfigureDevices(a1, a2, a3, a4); }
 
 	private:
-		ULONG m_refs;
+		ULONG m_ulRefs;
 		IDirectInput8A* m_pOrigin;
 	};
 }
