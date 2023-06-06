@@ -43,7 +43,7 @@ bool InGameIME::Initialize(IDXGISwapChain* a_pSwapChain, ID3D11Device* a_pDevice
 
 		ImmAssociateContextEx(hwnd, NULL, 0);
 	}
-	OnLoadConfig();
+	ReloadConfigs();
 	CreateD2DResources();
 
 	if (FAILED(hr))
@@ -53,7 +53,7 @@ bool InGameIME::Initialize(IDXGISwapChain* a_pSwapChain, ID3D11Device* a_pDevice
 	return mInitialized;
 }
 
-void InGameIME::OnLoadConfig()
+void InGameIME::ReloadConfigs()
 {
 	Configs* pConfigs = Configs::GetSingleton();
 	m_position.x = pConfigs->GetX();
@@ -79,10 +79,6 @@ HRESULT InGameIME::OnResizeTarget()
 	return S_OK;
 }
 
-/// <summary>
-/// Call on every frame, Draw candidate box.
-/// Called by RendererManager
-/// </summary>
 HRESULT InGameIME::OnRender()
 {
 	HRESULT hr = S_OK;

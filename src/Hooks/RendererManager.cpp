@@ -74,8 +74,9 @@ namespace Hooks
 		old_IDXGISwapChain_Present = REL::Relocation<decltype(IDXGISwapChain_Present)>(hook_Present->OldAddress);
 		old_IDXGISwapChain_ResizeTarget = REL::Relocation<decltype(IDXGISwapChain_ResizeTarget)>(hook_ResizeTarget->OldAddress);
 
-		DH_DEBUG("Installing Present");
+		DH_INFO("Installing Present hook");
 		hook_Present->Enable();
+		DH_INFO("Installing ResizeTarget hook");
 		hook_ResizeTarget->Enable();
 	}
 
@@ -83,10 +84,11 @@ namespace Hooks
 	{
 		char name[MAX_PATH] = "\0";
 		GetModuleFileNameA(GetModuleHandle(NULL), name, MAX_PATH);
-		DEBUG("Hooking Renderer_Init_InitD3D");
+
+		DH_INFO("Installing Renderer_Init_InitD3D hook");
 		Utils::WriteCall<Renderer_Init_InitD3D_Hook>(REL::RelocationID(75595, 77226).address() + REL::Relocate(0x50, 0x2BC));
 
-		DEBUG("Hooking D3D11CreateDeviceAndSwapChain");
+		DH_INFO("Installing D3D11CreateDeviceAndSwapChain hook");
 		{
 			auto hook = dku::Hook::AddIATHook(
 				name,
