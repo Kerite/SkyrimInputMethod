@@ -51,7 +51,12 @@ public:
 
 	bool GetUnlockWinKey()
 	{
-		return ini.GetBoolValue(L"General", L"unlock-win-key", false);
+		return ini.GetBoolValue(L"Features", L"unlock-win-key", false);
+	}
+
+	bool GetPaste()
+	{
+		return ini.GetBoolValue(L"Features", L"paste", true);
 	}
 
 	bool bAllowPasteInConsole = true;

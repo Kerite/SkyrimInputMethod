@@ -17,6 +17,7 @@ namespace Hooks
 		RE::ControlMap* pControlMap = RE::ControlMap::GetSingleton();
 		auto main = RE::Main::GetSingleton();
 		Cicero* pCicero = Cicero::GetSingleton();
+		Configs* pConfigs = Configs::GetSingleton();
 
 		switch (uMsg) {
 		case WM_ACTIVATE:
@@ -107,7 +108,7 @@ namespace Hooks
 				if (wParam == VK_SPACE && GetKeyState(VK_LWIN) < 0) {
 					ActivateKeyboardLayout((HKL)HKL_NEXT, KLF_SETFORPROCESS);
 					return S_OK;
-				} else if (wParam == VK_IME_ON) {  // Seems Ctrl+V
+				} else if (pConfigs->GetPaste() && wParam == VK_IME_ON) {  // Seems Ctrl+V
 					Utils::GetClipboard();
 					return S_OK;
 				}

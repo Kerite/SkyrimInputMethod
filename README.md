@@ -2,6 +2,12 @@
 
 Enable Input Method and shows a panel in TESV:Skyrim Anniversary Edition (1.6.x)
 
+## Features & Side effects
+
+- Allow paste in any Input Area (Feature, Configurable `paste`, Default on)
+- Unlock windows key (Feature, Configurable `unlock-win-key`, Default off)
+- Make keyboard non exclusive(Side effect)
+
 ## End User Dependency
 
 [Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/32444)
@@ -23,6 +29,12 @@ Enable Input Method and shows a panel in TESV:Skyrim Anniversary Edition (1.6.x)
 # 中文版
 
 在上古卷轴V：天际 十周年版（1.6.640）中启用输入法并且绘制一个输入面板
+
+## 功能 & 副作用
+
+- 允许在任何输入区域粘贴（功能，可配置, 配置文件`paste`，默认开）
+- 解锁 Windows 键（功能，可配置 `unlock-win-key`，默认关）
+- 使键盘变成非独占模式（副作用）
 
 ## 使用依赖
 

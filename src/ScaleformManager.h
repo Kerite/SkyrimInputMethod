@@ -19,6 +19,8 @@ public:
 		bInstalled = true;
 	}
 
+	void CopyText();
+
 	volatile ULONG bConsoleOpenState;
 
 private:
