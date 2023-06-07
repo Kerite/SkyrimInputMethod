@@ -6,6 +6,7 @@
 #include "Config.h"
 #include "InputPanel.h"
 #include "RE/CustomRE.h"
+#include "ScaleformManager.h"
 
 #define BUFFER_SIZE 400
 
@@ -253,17 +254,27 @@ namespace Utils
 
 	void GetClipboard()
 	{
+		DH_DEBUG("Pasting text");
+		Configs* pConfigs = Configs::GetSingleton();
+		ScaleformManager* pScaleformManager = ScaleformManager::GetSingleton();
+		if (!pConfigs->bAllowPasteInConsole && InterlockedCompareExchange(&pScaleformManager->bConsoleOpenState, pScaleformManager->bConsoleOpenState, 0xFF)) {
+			DH_DEBUG("Console is opened and another copy-paste mod installed, cancel");
+			return;
+		}
+
 		if (!OpenClipboard(nullptr))
 			return;
 		HANDLE hData = GetClipboardData(CF_UNICODETEXT);
 		if (!hData)
 			return;
-		WCHAR* pszText = static_cast<WCHAR*>(GlobalLock(hData));
+		LPCWSTR pszText = static_cast<LPCWSTR>(GlobalLock(hData));
 		int lTextLength = lstrlen(pszText);
 		if (pszText == nullptr)
 			return;
 		for (int i = 0; i < lTextLength; i++) {
 			SendUnicodeMessage(pszText[i]);
 		}
+		GlobalUnlock(hData);
+		CloseClipboard();
 	}
 }

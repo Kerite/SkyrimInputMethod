@@ -2,6 +2,7 @@
 
 #include "detours/Detours.h"
 
+#include "Config.h"
 #include "Helpers/DebugHelper.h"
 #include "Hooks/WindowsManager.h"
 #include "InputPanel.h"
@@ -39,7 +40,7 @@ namespace Hooks
 		HRESULT hr = oldFunc(a_hInstance, a_dwVersion, a_id, &pDinput8, a_pOuter);
 		if (hr != S_OK)
 			return hr;
-		*((IDirectInput8A**)a_pvOut) = new SCIDirectInput(pDinput8);
+		*((IDirectInput8A**)a_pvOut) = new SIMDirectInput(pDinput8);
 
 		DH_INFO("Hooked DirectInput8Create@dinput8.dll");
 
@@ -116,22 +117,26 @@ namespace Hooks
 		oldFunc(a_pThis, a_menuName, a_type, a_data);
 	}
 
-	HRESULT WINAPI SCIDirectInputDevice::SetCooperativeLevel(HWND a1, DWORD a2) noexcept
+	HRESULT WINAPI SIMDirectInputDevice::SetCooperativeLevel(HWND a1, DWORD a2) noexcept
 	{
 		if (m_eDeviceType == kKeyboard) {
-			return m_pOriginDevice->SetCooperativeLevel(a1, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND | DISCL_NOWINKEY);
+			if (Configs::GetSingleton()->GetUnlockWinKey()) {
+				return m_pOriginDevice->SetCooperativeLevel(a1, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
+			} else {
+				return m_pOriginDevice->SetCooperativeLevel(a1, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND | DISCL_NOWINKEY);
+			}
 		} else {
-			return m_pOriginDevice->SetCooperativeLevel(a1, DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+			return m_pOriginDevice->SetCooperativeLevel(a1, a2);
 		}
 	}
 
-	ULONG WINAPI SCIDirectInputDevice::AddRef() noexcept
+	ULONG WINAPI SIMDirectInputDevice::AddRef() noexcept
 	{
 		m_ulRefs++;
 		return m_ulRefs;
 	}
 
-	ULONG WINAPI SCIDirectInputDevice::Release() noexcept
+	ULONG WINAPI SIMDirectInputDevice::Release() noexcept
 	{
 		m_ulRefs--;
 		if (!m_ulRefs) {
@@ -142,13 +147,13 @@ namespace Hooks
 		return m_ulRefs;
 	}
 
-	ULONG WINAPI SCIDirectInput::AddRef(void) noexcept
+	ULONG WINAPI SIMDirectInput::AddRef(void) noexcept
 	{
 		m_ulRefs++;
 		return m_ulRefs;
 	}
 
-	ULONG WINAPI SCIDirectInput::Release(void) noexcept
+	ULONG WINAPI SIMDirectInput::Release(void) noexcept
 	{
 		m_ulRefs--;
 		if (!m_ulRefs) {
@@ -159,17 +164,19 @@ namespace Hooks
 		return m_ulRefs;
 	}
 
-	HRESULT WINAPI SCIDirectInput::CreateDevice(REFGUID a_gidType, LPDIRECTINPUTDEVICE8A* a_pDevice, LPUNKNOWN unused) noexcept
+	HRESULT WINAPI SIMDirectInput::CreateDevice(REFGUID a_gidType, LPDIRECTINPUTDEVICE8A* a_pDevice, LPUNKNOWN unused) noexcept
 	{
-		if (a_gidType != GUID_SysKeyboard && a_gidType != GUID_SysMouse) {
-			return m_pOrigin->CreateDevice(a_gidType, a_pDevice, unused);
-		} else {
+		if (a_gidType == GUID_SysKeyboard) {
 			IDirectInputDevice8A* device;
+			// Creates the old device
 			HRESULT hr = m_pOrigin->CreateDevice(a_gidType, &device, unused);
 			if (hr != S_OK)
 				return hr;
-			*a_pDevice = new SCIDirectInputDevice(device, a_gidType == GUID_SysKeyboard ? SCIDirectInputDevice::kKeyboard : SCIDirectInputDevice::kMouse);
+			// returns the packed device
+			*a_pDevice = new SIMDirectInputDevice(device, SIMDirectInputDevice::kKeyboard);
 			return hr;
+		} else {
+			return m_pOrigin->CreateDevice(a_gidType, a_pDevice, unused);
 		}
 	}
 }

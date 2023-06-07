@@ -3,6 +3,7 @@
 #include "detours/detours.h"
 
 #include "Cirero.h"
+#include "Config.h"
 #include "Helpers/DebugHelper.h"
 #include "Hooks/InputManager.h"
 #include "InputPanel.h"

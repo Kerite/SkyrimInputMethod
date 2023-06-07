@@ -49,6 +49,13 @@ public:
 		return candidateSize < 0 ? 8 : candidateSize;
 	}
 
+	bool GetUnlockWinKey()
+	{
+		return ini.GetBoolValue(L"General", L"unlock-win-key", false);
+	}
+
+	bool bAllowPasteInConsole = true;
+
 private:
 	CSimpleIni ini;
 };

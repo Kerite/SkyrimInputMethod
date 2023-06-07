@@ -11,6 +11,7 @@
 #include "Hooks/RendererManager.h"
 #include "Hooks/SKSEManager.h"
 #include "Hooks/WindowsManager.h"
+#include "ScaleformManager.h"
 
 #include "Config.h"
 
@@ -19,8 +20,15 @@ namespace
 	void MessageHandler(SKSE::MessagingInterface::Message* a_msg) noexcept
 	{
 		switch (a_msg->type) {
+		case SKSE::MessagingInterface::kPostPostLoad:
+			if (GetModuleHandle(L"po3_ConsolePlusPlus.dll")) {
+				DH_INFO("ConsolePlusPlus dected, disable paste in console");
+				Configs::GetSingleton()->bAllowPasteInConsole = false;
+			}
+			break;
 		case SKSE::MessagingInterface::kInputLoaded:
 			Hooks::SKSEManager::GetSingleton()->Install();
+			ScaleformManager::GetSingleton()->Install();
 			break;
 		case SKSE::MessagingInterface::kDataLoaded:
 			break;

@@ -58,16 +58,16 @@ namespace Hooks
 		};
 	};
 
-	class SCIDirectInputDevice : public IDirectInputDevice8A
+	class SIMDirectInputDevice : public IDirectInputDevice8A
 	{
 	public:
 		enum DeviceType
 		{
 			kKeyboard,
-			kMouse
+			kMouse // Not used
 		};
 
-		SCIDirectInputDevice(IDirectInputDevice8A* a_pDevice, DeviceType a_deviceType) :
+		SIMDirectInputDevice(IDirectInputDevice8A* a_pDevice, DeviceType a_deviceType) :
 			m_pOriginDevice(a_pDevice), m_eDeviceType(a_deviceType), m_ulRefs(1) {}
 
 		HRESULT WINAPI SetCooperativeLevel(HWND a1, DWORD a2) noexcept;
@@ -110,10 +110,10 @@ namespace Hooks
 		ULONG m_ulRefs;
 	};
 
-	class SCIDirectInput : public IDirectInput8A
+	class SIMDirectInput : public IDirectInput8A
 	{
 	public:
-		SCIDirectInput(IDirectInput8A* a_pOrigin) :
+		SIMDirectInput(IDirectInput8A* a_pOrigin) :
 			m_pOrigin(a_pOrigin), m_ulRefs(1) {}
 
 		HRESULT WINAPI QueryInterface(REFIID riid, LPVOID* ppvObj) noexcept { return m_pOrigin->QueryInterface(riid, ppvObj); }
