@@ -32,7 +32,7 @@ Enable Input Method and shows a panel in TESV:Skyrim Anniversary Edition (1.6.x)
 
 ## 功能 & 副作用
 
-- 允许在任何输入区域粘贴（功能，可配置, 配置文件`paste`，默认开）
+- 允许在任何输入区域粘贴（功能，可配置, `paste`，默认开）
 - 解锁 Windows 键（功能，可配置 `unlock-win-key`，默认关）
 - 使键盘变成非独占模式（副作用）
 
