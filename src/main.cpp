@@ -45,7 +45,7 @@ DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 	INFO("{} v{} loaded", Plugin::NAME, Plugin::Version);
 
 	if (REL::Module::IsSE()) {
-		ERROR("Skyrim Input Method is not compalitable with 1.5.x");
+		ERROR("Skyrim Input Method is for 1.6.x");
 		return false;
 	}
 

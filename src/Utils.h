@@ -55,4 +55,6 @@ namespace Utils
 	/// Get result string and send it to game
 	/// 获取结果并且发送到游戏
 	void GetResultString(const HWND& hWnd);
+
+	void GetClipboard();
 }

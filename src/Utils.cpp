@@ -250,4 +250,20 @@ namespace Utils
 		RE::UIMessageQueue::GetSingleton()->AddMessage(menuName, RE::UI_MESSAGE_TYPE::kScaleformEvent, pScaleFormMessageData);
 		return true;
 	}
+
+	void GetClipboard()
+	{
+		if (!OpenClipboard(nullptr))
+			return;
+		HANDLE hData = GetClipboardData(CF_UNICODETEXT);
+		if (!hData)
+			return;
+		WCHAR* pszText = static_cast<WCHAR*>(GlobalLock(hData));
+		int lTextLength = lstrlen(pszText);
+		if (pszText == nullptr)
+			return;
+		for (int i = 0; i < lTextLength; i++) {
+			SendUnicodeMessage(pszText[i]);
+		}
+	}
 }

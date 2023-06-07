@@ -101,10 +101,13 @@ namespace Hooks
 			break;
 
 		case WM_CHAR:
-			DH_DEBUG("[WinProc WM_CHAR] Param: {}", wParam);
+			DH_DEBUG("[WinProc WM_CHAR] Param: 0x{:X}", wParam);
 			if (pControlMap->textEntryCount) {
 				if (wParam == VK_SPACE && GetKeyState(VK_LWIN) < 0) {
 					ActivateKeyboardLayout((HKL)HKL_NEXT, KLF_SETFORPROCESS);
+					return S_OK;
+				} else if (wParam == VK_IME_ON) {  // Seems Ctrl+V
+					Utils::GetClipboard();
 					return S_OK;
 				}
 				Utils::SendUnicodeMessage(wParam);
