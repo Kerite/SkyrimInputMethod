@@ -11,7 +11,7 @@
 
 namespace Hooks
 {
-	HRESULT __fastcall WindowsManager::WindowProc_Hook::hooked(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+	LRESULT WindowsManager::WndProcHook::thunk(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 		RE::ControlMap* pControlMap = RE::ControlMap::GetSingleton();
@@ -117,19 +117,20 @@ namespace Hooks
 			return S_OK;
 
 		case WM_IME_SETCONTEXT:
-			return DefWindowProc(hWnd, WM_IME_SETCONTEXT, wParam, NULL);
+			return DefWindowProcA(hWnd, WM_IME_SETCONTEXT, wParam, NULL);
 		}
-		return oldFunc(hWnd, uMsg, wParam, lParam);
+		return func(hWnd, uMsg, wParam, lParam);
 	}
 
-	void WindowsManager::Install()
+	void WindowsManager::Install(HWND hWnd)
 	{
-		DetourTransactionBegin();
-		DetourUpdateThread(GetCurrentThread());
-
-		DH_INFO("Installing WindowProc Hook");
-		Utils::DetourAttach<WindowProc_Hook>(REL::ID(36649));
-
-		DetourTransactionCommit();
+		// AE :$5F2AF0(36649)
+		WndProcHook::func = reinterpret_cast<WNDPROC>(
+			SetWindowLongPtrA(
+				hWnd,
+				GWLP_WNDPROC,
+				reinterpret_cast<LONG_PTR>(WndProcHook::thunk)));
+		if (!WndProcHook::func)
+			ERROR("SetWindowLongPtrA failed!");
 	}
 }

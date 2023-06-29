@@ -70,8 +70,9 @@ namespace Hooks
 
 		DetourTransactionCommit();
 
-		DH_INFO("Installing UIMessageQueue::AddMessage Hook at 82182+0x7D");
-		Utils::WriteCall<UIMessageQueue_AddMessage_Hook>(REL::RelocationID(0, 82182).address() + REL::Relocate(0, 0x7D));
+		DH_INFO("Installing UnknownFunction_UIMessageQueue::AddMessage() Hook");
+		// SE :$85AA30 :$EC3ED0(80079), AE :$f1c650
+		Utils::WriteCall<UIMessageQueue_AddMessage_Hook>(RELOCATION_ID(80079, 82182).address() + REL::Relocate(0x9C, 0x7D));
 		GetModuleHandle(NULL);
 
 		DH_INFO("Installing dinput8.dll DirectInput8Create Hook");

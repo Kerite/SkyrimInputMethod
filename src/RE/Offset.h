@@ -4,12 +4,12 @@ namespace RE::Offset
 {
 	namespace BSScaleformManager
 	{
-		inline constexpr REL::ID LoadMovie(static_cast<std::uint64_t>(82325));
-		inline constexpr REL::ID Singleton(static_cast<std::uint64_t>(402775));
+		inline constexpr auto LoadMovie = RELOCATION_ID(80302, 82325);
 	}
 
 	namespace ControlMap
 	{
-		inline constexpr auto AllowTextInput = RELOCATION_ID(0, 68552);
+		// Found this address using CheatEngine
+		inline constexpr auto AllowTextInput = RELOCATION_ID(67252, 68552);
 	}
 }  // namespace Offsets

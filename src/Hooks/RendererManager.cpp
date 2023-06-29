@@ -7,6 +7,7 @@
 #include "Helpers/DebugHelper.h"
 #include "InputPanel.h"
 #include "Utils.h"
+#include "WindowsManager.h"
 
 std::string SafeGetFont(std::string_view fontPathOrName)
 {
@@ -86,12 +87,13 @@ void Hooks::RendererManager::Hook_InitD3D::hooked()
 		ERROR("[Renderer] Failed init imgui (Win32)")
 	}
 	RendererManager::GetSingleton()->m_bInitialized.store(true);
+
+	Hooks::WindowsManager::GetSingleton()->Install(desc.OutputWindow);
 }
 
 void Hooks::RendererManager::Hook_Present::hooked(std::uint32_t a_p1)
 {
 	oldFunc(a_p1);
-	INFO("Present()");
 	if (!RendererManager::GetSingleton()->m_bInitialized.load()) {
 		return;
 	}

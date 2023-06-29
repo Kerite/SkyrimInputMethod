@@ -8,18 +8,17 @@ namespace Hooks
 	class WindowsManager final : public Singleton<WindowsManager>
 	{
 	public:
-		void Install();
+		void Install(HWND);
 
 	private:
 		/*===========================
 		==========  Hooks  ==========
 		=============================*/
 
-		struct WindowProc_Hook
+		struct WndProcHook
 		{
-			static HRESULT __fastcall hooked(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
-			static inline decltype(&hooked) oldFunc;
+			static LRESULT thunk(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+			static inline WNDPROC func;
 		};
 	};
 }

@@ -1,6 +1,4 @@
 ﻿#pragma comment(lib, "imm32.lib")
-#pragma comment(lib, "d2d1")
-#pragma comment(lib, "dwrite")
 #pragma comment(lib, "dxguid.lib")
 
 #include "RE/CustomRE.h"
@@ -22,7 +20,7 @@ namespace
 		switch (a_msg->type) {
 		case SKSE::MessagingInterface::kPostPostLoad:
 			if (GetModuleHandle(L"po3_ConsolePlusPlus.dll")) {
-				DH_INFO("ConsolePlusPlus dected, disable paste in console");
+				DH_INFO("ConsolePlusPlus detected, disable paste in console");
 				Configs::GetSingleton()->bAllowPasteInConsole = false;
 			}
 			break;
@@ -52,10 +50,10 @@ DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 
 	INFO("{} v{} loaded", Plugin::NAME, Plugin::Version);
 
-	if (REL::Module::IsSE()) {
-		ERROR("Skyrim Input Method is for 1.6.x");
-		return false;
-	}
+	//if (REL::Module::IsSE()) {
+	//	ERROR("Skyrim Input Method is for 1.6.x");
+	//	return false;
+	//}
 
 	if (!SKSE::GetMessagingInterface()->RegisterListener(MessageHandler)) {
 		return false;
@@ -63,7 +61,7 @@ DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 
 	Hooks::RendererManager::GetSingleton()->Install();
 	Hooks::InputManager::GetSingleton()->Install();
-	Hooks::WindowsManager::GetSingleton()->Install();
+	//Hooks::WindowsManager::GetSingleton()->Install();
 	Cicero::GetSingleton()->SetupSinks();
 	auto configs = Configs::GetSingleton();
 	configs->Load();

@@ -9,6 +9,7 @@ class ScaleformManager :
 public:
 	void Install()
 	{
+		DH_INFO("Installing ScaleformManager");
 		static bool bInstalled = false;
 		if (bInstalled)
 			return;
@@ -17,6 +18,7 @@ public:
 		DH_INFO("Registering MenuOpenCloseEvent event");
 		pUI->AddEventSink<RE::MenuOpenCloseEvent>(this);
 		bInstalled = true;
+		DH_INFO("Installed ScaleformManager");
 	}
 
 	void CopyText();

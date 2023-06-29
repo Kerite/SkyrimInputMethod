@@ -22,29 +22,12 @@ namespace Hooks
 		void ProcessAllowTextInput(bool a_increase);
 
 	private:
-		HOOK_DEF_THIS(ControlMap_AllowTextInput, void, RE::ControlMap, bool)
+		HOOK_DEF_THIS(ControlMap_AllowTextInput, void, RE::ControlMap, bool);
 		HOOK_DEF_THIS(UIMessageQueue_AddMessage, void, RE::UIMessageQueue, const RE::BSFixedString&, RE::UI_MESSAGE_TYPE, RE::IUIMessageData*)
 
 		/*===========================
 		==========  Hooks  ==========
 		=============================*/
-
-		/// <summary>
-		/// Hook ControlMap::AllowTextInput
-		/// </summary>
-		//struct ControlMap_AllowTextInput_Hook
-		//{
-		//	static void hooked(RE::ControlMap* control_map, bool a_allow)
-		//	{
-		//		auto input_manager = InputManager::GetSingleton();
-
-		//		input_manager->ProcessAllowTextInput(a_allow);
-
-		//		oldFunc(control_map, a_allow);
-		//	}
-		//	static inline decltype(&hooked) oldFunc;
-		//};
-
 		/// <summary>
 		/// Hook SendScaleformEvent(82182)+0x7D 调用 UIMessageQueue::AddMessage 的地方
 		/// </summary>
