@@ -52,6 +52,7 @@ source_group(
 add_subdirectory($ENV{CommonLibSSEPath} CommonLibSSE)
 add_subdirectory($ENV{DKUtilPath} DKUtil)
 find_package(spdlog CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
 find_path(DETOURS_INCLUDE_DIRS "detours/detours.h")
 find_library(DETOURS_LIBRARY detours REQUIRED)
 
@@ -81,10 +82,11 @@ target_include_directories(
 target_link_libraries(
 	${PROJECT_NAME} 
 	PRIVATE
+		${DETOURS_LIBRARY}
 		CommonLibSSE::CommonLibSSE
 		DKUtil::DKUtil
 		spdlog::spdlog
-		${DETOURS_LIBRARY}
+		imgui::imgui
 )
 
 # compiler def

@@ -10,6 +10,44 @@ void SafeRelease(T** ppT)
 	}
 }
 
+namespace Utils::Hook
+{
+	template <class T>
+	void DetourAttach(std::uintptr_t a_pAddress)
+	{
+		T::oldFunc = REL::Relocation<decltype(&T::hooked)>(a_pAddress);
+		::DetourAttach(reinterpret_cast<void**>(&T::oldFunc), reinterpret_cast<void*>(T::hooked));
+	}
+
+	template <class T>
+	void WriteCall(std::uintptr_t a_address)
+	{
+		SKSE::AllocTrampoline(14);
+		auto& trampoline = SKSE::GetTrampoline();
+		T::oldFunc = trampoline.write_call<5>(a_address, T::hooked);
+	}
+
+	template <class T>
+	void WriteCall()
+	{
+		SKSE::AllocTrampoline(14);
+		auto& trampoline = SKSE::GetTrampoline();
+		REL::Relocation<std::uint32_t> hook{ T::id, T::offset };
+		T::oldFunc = trampoline.write_call<5>(hook.address(), T::hooked);
+	}
+
+	void inline DetourStartup()
+	{
+		DetourTransactionBegin();
+		DetourUpdateThread(GetCurrentThread());
+	}
+
+	void inline DetourFinish()
+	{
+		DetourTransactionCommit();
+	}
+}
+
 namespace Utils
 {
 	std::string WideStringToString(const std::wstring wstr);
