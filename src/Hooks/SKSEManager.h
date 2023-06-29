@@ -19,5 +19,4 @@ namespace Hooks
 			void Call(Params& a_params) override;
 		};
 	};
-
 }

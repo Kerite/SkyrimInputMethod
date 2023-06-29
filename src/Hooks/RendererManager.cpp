@@ -7,6 +7,73 @@
 #include "InputPanel.h"
 #include "Utils.h"
 
+#pragma region Hooks_Impl
+void Hooks::RendererManager::Hook_InitD3D::hooked()
+{
+	INFO("Calling origin InitD3D");
+	oldFunc();
+	auto pRendererManager = RE::BSGraphics::Renderer::GetSingleton();
+	if (!pRendererManager) {
+		ERROR("[Renderer] Failed get rendererManager");
+	}
+
+	auto renderData = pRendererManager->data;
+	auto pSwapChain = renderData.renderWindows->swapChain;
+	auto pDevice = renderData.forwarder;
+	auto pDeviceContext = renderData.context;
+	if (!pSwapChain) {
+		ERROR("[Renderer] Failed get SwapChain");
+	}
+	IMEPanel::GetSingleton()->Initialize(pSwapChain);
+
+	DXGI_SWAP_CHAIN_DESC desc{};
+	if (FAILED(pSwapChain->GetDesc(&desc))) {
+		ERROR("[Renderer] Failed get DXGI_SWAP_CHAIN_DESC");
+	}
+
+	ImGui::CreateContext();
+
+	std::ifstream fontconfig("Interface/fontconfig.txt");
+	std::string fontconfigStr;
+	if (fontconfig) {
+		std::ostringstream ss;
+		ss << fontconfig.rdbuf();
+		fontconfigStr = ss.str();
+	}
+
+	ImVector<ImWchar> ranges;
+	ImFontGlyphRangesBuilder glyphBuilder;
+	glyphBuilder.AddText(fontconfigStr.c_str());
+	glyphBuilder.BuildRanges(&ranges);
+
+	if (!ImGui_ImplDX11_Init(pDevice, pDeviceContext)) {
+		ERROR("[Renderer] Failed init imgui (DX11)")
+	}
+	if (!ImGui_ImplWin32_Init(desc.OutputWindow)) {
+		ERROR("[Renderer] Failed init imgui (Win32)")
+	}
+	RendererManager::GetSingleton()->m_bInitialized.store(true);
+}
+
+void Hooks::RendererManager::Hook_Present::hooked(std::uint32_t a_p1)
+{
+	oldFunc(a_p1);
+	INFO("Present()");
+	if (!RendererManager::GetSingleton()->m_bInitialized.load()) {
+		return;
+	}
+	ImGui_ImplDX11_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+
+	IMEPanel::GetSingleton()->OnRender();
+
+	ImGui::EndFrame();
+	ImGui::Render();
+	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+}
+#pragma endregion
+
 namespace Hooks
 {
 	HRESULT WINAPI IDXGISwapChain_Present(IDXGISwapChain* a_this, UINT a_syncInterval, UINT a_flags);
@@ -62,7 +129,7 @@ namespace Hooks
 		auto pRenderer = RE::BSGraphics::Renderer::GetSingleton();
 		IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 
-		IDXGISwapChain* pDXGISwapChain = pRenderer->data.renderWindows[0].swapChain;
+		IDXGISwapChain* pDXGISwapChain = pRenderer->data.renderWindows->swapChain;
 		//ID3D11Device* pD3DDevice = pRenderer->data.forwarder;
 		//ID3D11DeviceContext* pD3DDeviceContext = pRenderer->data.context;
 
@@ -85,7 +152,10 @@ namespace Hooks
 		GetModuleFileNameA(GetModuleHandle(NULL), name, MAX_PATH);
 
 		DH_INFO("Installing Renderer_Init_InitD3D hook");
-		Utils::WriteCall<Renderer_Init_InitD3D_Hook>(REL::RelocationID(75595, 77226).address() + REL::Relocate(0x50, 0x2BC));
+		//Utils::WriteCall<Renderer_Init_InitD3D_Hook>(REL::RelocationID(75595, 77226).address() + REL::Relocate(0x50, 0x2BC));
+		Utils::Hook::WriteCall<Hook_InitD3D>();
+
+		Utils::Hook::WriteCall<Hook_Present>();
 
 		DH_INFO("Installing D3D11CreateDeviceAndSwapChain@d3d11.dll hook");
 		auto hook = dku::Hook::AddIATHook(

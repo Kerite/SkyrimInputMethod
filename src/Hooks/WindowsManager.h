@@ -2,6 +2,7 @@
 
 #define WM_IME_SETSTATE 0x0655
 
+// Used for hooking the window procedure
 namespace Hooks
 {
 	class WindowsManager final : public Singleton<WindowsManager>

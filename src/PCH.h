@@ -115,6 +115,10 @@ using namespace REL::literals;
 // Plugin
 #include "Plugin.h"
 
+#include "imgui.h"
+#include "imgui_impl_dx11.h"
+#include "imgui_impl_win32.h"
+
 // DKUtil
 #include "DKUtil/Extra.hpp"
 #include "DKUtil/Hook.hpp"
@@ -123,16 +127,16 @@ using namespace REL::literals;
 
 using namespace dku::model;
 
-#define HOOK_MAKE_THIS(hookName, retName, thisName, ...)          \
+#define HOOK_DEF_THIS(hookName, retName, thisName, ...)           \
 	struct Hook_##hookName                                        \
 	{                                                             \
 		static retName __fastcall hooked(thisName*, __VA_ARGS__); \
 		static inline REL::Relocation<decltype(hooked)> oldFunc;  \
 	};
-#define HOOK_FUNC_THIS(managerName, hookName, retName, thisName, ...) \
+#define HOOK_IMPL_THIS(managerName, hookName, retName, thisName, ...) \
 	retName __fastcall managerName::Hook_##hookName::hooked(thisName* a_pThis, __VA_ARGS__)
 
-#define HOOK_MAKE(seId, aeId, seOffset, aeOffset, hookName, retName, ...)            \
+#define HOOK_DEF(seId, aeId, seOffset, aeOffset, hookName, retName, ...)             \
 	struct Hook_##hookName                                                           \
 	{                                                                                \
 		static retName __fastcall hooked(__VA_ARGS__);                               \
@@ -141,5 +145,5 @@ using namespace dku::model;
 		static inline REL::Relocation<decltype(hooked)> oldFunc;                     \
 	};
 
-#define HOOK_FUNC(managerName, hookName, ...) \
+#define HOOK_IMPL(managerName, hookName, ...) \
 	__fastcall managerName::Hook_##hookName::hooked(__VA_ARGS__)

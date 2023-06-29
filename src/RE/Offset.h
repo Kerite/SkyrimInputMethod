@@ -10,6 +10,6 @@ namespace RE::Offset
 
 	namespace ControlMap
 	{
-		inline constexpr REL::ID AllowTextInput(static_cast<std::uint64_t>(68552));
+		inline constexpr auto AllowTextInput = RELOCATION_ID(0, 68552);
 	}
 }  // namespace Offsets

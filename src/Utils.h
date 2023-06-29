@@ -15,7 +15,7 @@ namespace Utils::Hook
 	template <class T>
 	void DetourAttach(std::uintptr_t a_pAddress)
 	{
-		T::oldFunc = REL::Relocation<decltype(&T::hooked)>(a_pAddress);
+		T::oldFunc = a_pAddress;
 		::DetourAttach(reinterpret_cast<void**>(&T::oldFunc), reinterpret_cast<void*>(T::hooked));
 	}
 
