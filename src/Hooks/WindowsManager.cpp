@@ -108,7 +108,7 @@ namespace Hooks
 				if (wParam == VK_SPACE && GetKeyState(VK_LWIN) < 0) {
 					ActivateKeyboardLayout((HKL)HKL_NEXT, KLF_SETFORPROCESS);
 					return S_OK;
-				} else if (pConfigs->GetPaste() && wParam == VK_IME_ON) {  // Seems Ctrl+V
+				} else if (Configs::bFeaturePaste && wParam == VK_IME_ON) {  // Seems Ctrl+V
 					Utils::GetClipboard();
 					return S_OK;
 				}

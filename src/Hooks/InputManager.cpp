@@ -137,7 +137,7 @@ namespace Hooks
 	HRESULT WINAPI SIMDirectInputDevice::SetCooperativeLevel(HWND a1, DWORD a2) noexcept
 	{
 		if (m_eDeviceType == kKeyboard) {
-			if (Configs::GetSingleton()->GetUnlockWinKey()) {
+			if (Configs::bFeatureUnlockWinKey) {
 				return m_pOriginDevice->SetCooperativeLevel(a1, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
 			} else {
 				return m_pOriginDevice->SetCooperativeLevel(a1, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND | DISCL_NOWINKEY);

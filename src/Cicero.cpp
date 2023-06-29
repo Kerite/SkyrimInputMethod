@@ -386,7 +386,7 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* a_pCandidate)
 				dwCurrentPageSize = std::min(uCount, indexList[uCurrentPage + 1]) - dwPageStart;
 			}
 		}
-		dwCurrentPageSize = std::min<DWORD>(dwCurrentPageSize, pConfigs->GetCandidateSize());
+		dwCurrentPageSize = std::min<DWORD>(dwCurrentPageSize, Configs::iCandidateSize);
 		if (dwCurrentPageSize)  // If current page size > 0, disable special keys
 			InterlockedExchange(&pIMEPanel->bDisableSpecialKey, TRUE);
 

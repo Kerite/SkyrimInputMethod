@@ -1,22 +1,22 @@
 {
-  "name": "skyriminputmethod",
-  "version-string": "1.0.1",
-  "description": "",
-  "license": "MIT",
-  "dependencies": [
-    {
-      "name": "imgui",
-      "features": [
-        "dx11-binding",
-        "win32-binding"
-      ]
-    },
-    "detours",
-    "spdlog"
-  ],
-  "features": {
-    "mo2-install": {
-      "description": "Skyrim Input Method"
-    }
-  }
+    "name":  "skyriminputmethod",
+    "version-string":  "1.1.0",
+    "description":  "",
+    "license":  "MIT",
+    "dependencies":  [
+                         {
+                             "name":  "imgui",
+                             "features":  [
+                                              "dx11-binding",
+                                              "win32-binding"
+                                          ]
+                         },
+                         "detours",
+                         "spdlog"
+                     ],
+    "features":  {
+                     "mo2-install":  {
+                                         "description":  "Skyrim Input Method"
+                                     }
+                 }
 }
