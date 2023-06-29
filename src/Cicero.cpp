@@ -43,7 +43,7 @@ Cicero::Cicero() :
 
 Cicero::~Cicero()
 {
-	DH_INFO("Releasing Cicero");
+	INFO("Releasing Cicero");
 	ReleaseSinks();
 }
 
@@ -88,7 +88,7 @@ HRESULT Cicero::SetupSinks()
 	int processedCodeBlock = 0;
 	HRESULT hr = S_OK;
 	ITfSource* pSource = nullptr;
-	DH_INFO("[TSF] Initializing Cicero");
+	INFO("[TSF] Initializing Cicero");
 
 	if (!bCOMInitialized) {
 		hr = CoInitializeEx(NULL, ::COINIT_APARTMENTTHREADED);
@@ -132,9 +132,9 @@ HRESULT Cicero::SetupSinks()
 	}
 	if (SUCCEEDED(hr)) {
 		bCOMInitialized = true;
-		DH_INFO("[TSF] Set-up Successful");
+		INFO("[TSF] Set-up Successful");
 	} else {
-		DH_INFO("!!![TSF] Set-up Failed, Result: 0x{:X}, processed code blocks: {}", (ULONG)hr, processedCodeBlock);
+		INFO("!!![TSF] Set-up Failed, Result: 0x{:X}, processed code blocks: {}", (ULONG)hr, processedCodeBlock);
 	}
 	return S_OK;
 }
@@ -171,7 +171,7 @@ void Cicero::ReleaseSinks()
 STDAPI Cicero::BeginUIElement(DWORD dwUIElementId, BOOL* pbShow)
 {
 	int token = rand();
-	DH_DEBUG("[TSF BeginUIElement#{}] == Start ==", token);
+	DEBUG("[TSF BeginUIElement#{}] == Start ==", token);
 	HRESULT hr = S_OK;
 
 	IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
@@ -188,7 +188,7 @@ STDAPI Cicero::BeginUIElement(DWORD dwUIElementId, BOOL* pbShow)
 		this->UpdateCandidateList(lpCandidate);
 	}
 	pElement->Release();
-	DH_DEBUG("[TSF BeginUIElement#{}] == Finish ==\n", token);
+	DEBUG("[TSF BeginUIElement#{}] == Finish ==\n", token);
 	return S_OK;
 }
 
@@ -196,7 +196,7 @@ STDAPI Cicero::BeginUIElement(DWORD dwUIElementId, BOOL* pbShow)
 STDAPI Cicero::UpdateUIElement(DWORD dwUIElementId)
 {
 	int token = rand();
-	DH_DEBUG("[TSF UpdateUIElement#{}] == Start ==", token);
+	DEBUG("[TSF UpdateUIElement#{}] == Start ==", token);
 	HRESULT hr = S_OK;
 	ITfUIElement* pElement = GetUIElement(dwUIElementId);
 	if (!pElement) {
@@ -208,7 +208,7 @@ STDAPI Cicero::UpdateUIElement(DWORD dwUIElementId)
 		this->UpdateCandidateList(lpCandidate);
 		pElement->Release();
 	}
-	DH_DEBUG("[TSF UpdateUIElement#{}] == Finish ==\n", token);
+	DEBUG("[TSF UpdateUIElement#{}] == Finish ==\n", token);
 	return S_OK;
 }
 
@@ -216,7 +216,7 @@ STDAPI Cicero::UpdateUIElement(DWORD dwUIElementId)
 STDAPI Cicero::EndUIElement(DWORD dwUIElementId)
 {
 	int token = rand();
-	DH_DEBUG("[TSF EndUIElement#{}] == Start ==", token);
+	DEBUG("[TSF EndUIElement#{}] == Start ==", token);
 	HRESULT hr = S_OK;
 	ITfUIElement* pElement = GetUIElement(dwUIElementId);
 	if (!pElement) {
@@ -228,7 +228,7 @@ STDAPI Cicero::EndUIElement(DWORD dwUIElementId)
 		this->UpdateCandidateList(lpCandidate);
 		pElement->Release();
 	}
-	DH_DEBUG("[TSF EndUIElement#{}] == Finish ==\n", token);
+	DEBUG("[TSF EndUIElement#{}] == Finish ==\n", token);
 	return S_OK;
 }
 
@@ -240,7 +240,7 @@ STDAPI Cicero::OnEndEdit(ITfContext* cxt, TfEditCookie ecReadOnly, ITfEditRecord
 	ITfContextComposition* pContextComposition;
 	IEnumITfCompositionView* pEnumCompositionView;
 
-	DH_DEBUG("[TSF OnEndEdit#{}] == Start ==", token);
+	DEBUG("[TSF OnEndEdit#{}] == Start ==", token);
 	if (SUCCEEDED(hr = cxt->QueryInterface(&pContextComposition))) {
 		hr = pContextComposition->EnumCompositions(&pEnumCompositionView);
 	}
@@ -274,7 +274,7 @@ STDAPI Cicero::OnEndEdit(ITfContext* cxt, TfEditCookie ecReadOnly, ITfEditRecord
 	if (pContextComposition) {
 		pContextComposition->Release();
 	}
-	DH_DEBUG("[TSF OnEndEdit#{}] == Finish ==\n", token);
+	DEBUG("[TSF OnEndEdit#{}] == Finish ==\n", token);
 	return S_OK;
 }
 
@@ -282,11 +282,11 @@ STDAPI Cicero::OnEndEdit(ITfContext* cxt, TfEditCookie ecReadOnly, ITfEditRecord
 STDAPI Cicero::OnActivated(DWORD dwProfileType, LANGID langid, REFCLSID clsid, REFGUID catid, REFGUID guidProfile, HKL hkl, DWORD dwFlags)
 {
 	int token = rand();
-	DH_DEBUG("[TSF OnActivated#{}] == Start ==", token);
+	DEBUG("[TSF OnActivated#{}] == Start ==", token);
 	if (!(dwFlags & TF_IPSINK_FLAG_ACTIVE))
 		return S_OK;
 	this->UpdateCurrentInputMethodName();
-	DH_DEBUG("[TSF OnActivated#{}] == Finish ==\n", token);
+	DEBUG("[TSF OnActivated#{}] == Finish ==\n", token);
 	return S_OK;
 }
 
@@ -372,7 +372,7 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* a_pCandidate)
 
 		dwPageSelection = static_cast<DWORD>(uSelectedIndex);
 		a_pCandidate->GetPageIndex(nullptr, 0, &uPageCount);
-		DH_DEBUG("(TSF) Updating CandidateList, Selection: {}, Count: {}, CurrentPage: {}, PageCount: {}", uSelectedIndex, uCount, uCurrentPage, uPageCount);
+		DEBUG("(TSF) Updating CandidateList, Selection: {}, Count: {}, CurrentPage: {}, PageCount: {}", uSelectedIndex, uCount, uCurrentPage, uPageCount);
 		if (uPageCount > 0) {
 			std::unique_ptr<UINT[], void(__cdecl*)(void*)> indexList(
 				reinterpret_cast<UINT*>(Utils::HeapAlloc(sizeof(UINT) * uPageCount)),
@@ -390,7 +390,7 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* a_pCandidate)
 		if (dwCurrentPageSize)  // If current page size > 0, disable special keys
 			InterlockedExchange(&pIMEPanel->bDisableSpecialKey, TRUE);
 
-		DH_DEBUG("(TSF) SelectedIndex in current page: {}, PageStartIndex: {}", dwPageSelection, dwPageStart);
+		DEBUG("(TSF) SelectedIndex in current page: {}, PageStartIndex: {}", dwPageSelection, dwPageStart);
 
 		// Update Candidate Page Information to IMEPanel
 		InterlockedExchange(&pIMEPanel->ulSlectedIndex, dwPageSelection);
@@ -417,7 +417,7 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* a_pCandidate)
 
 HRESULT Cicero::UpdateCurrentInputMethodName()
 {
-	DH_DEBUG("[TSF] Updating Current Input Method");
+	DEBUG("[TSF] Updating Current Input Method");
 	static WCHAR lastTipName[64];
 	HRESULT hr = S_OK;
 	TF_INPUTPROCESSORPROFILE tip;
@@ -430,7 +430,7 @@ HRESULT Cicero::UpdateCurrentInputMethodName()
 	if (FAILED(hr)) {
 		ERROR("(UpdateCurrentInputMethodName) GetActiveProfile failed");
 	}
-	DH_DEBUG("Updating State, 0x{:X}", tip.dwProfileType);
+	DEBUG("Updating State, 0x{:X}", tip.dwProfileType);
 	this->UpdateCiceroState(tip.dwProfileType, tip.hkl);
 	if (tip.dwProfileType & TF_PROFILETYPE_INPUTPROCESSOR) {
 		BSTR bstrImeName = nullptr;
@@ -458,13 +458,13 @@ HRESULT Cicero::UpdateCurrentInputMethodName()
 void Cicero::UpdateCiceroState(DWORD dwProfileType, HKL hkl)
 {
 	if (dwProfileType & TF_PROFILETYPE_INPUTPROCESSOR) {
-		DH_DEBUG("[TSF UpdateCiceroState] TIP InputMethod {}", (unsigned int)hkl);
+		DEBUG("[TSF UpdateCiceroState] TIP InputMethod {}", (unsigned int)hkl);
 		bCiceroState = true;
 	} else if (dwProfileType & TF_PROFILETYPE_KEYBOARDLAYOUT) {
-		DH_DEBUG("[TSF UpdateCiceroState] HKL/IME {}", (unsigned int)hkl);
+		DEBUG("[TSF UpdateCiceroState] HKL/IME {}", (unsigned int)hkl);
 		bCiceroState = false;
 	} else {
-		DH_DEBUG("[TSF UpdateCiceroState] Unknown Profile Type {}", (unsigned int)hkl);
+		DEBUG("[TSF UpdateCiceroState] Unknown Profile Type {}", (unsigned int)hkl);
 		bCiceroState = false;
 	}
 }

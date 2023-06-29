@@ -38,23 +38,11 @@ namespace
 
 DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 {
-	//#ifndef NDEBUG
-	//	while (!IsDebuggerPresent()) {
-	//		Sleep(100);
-	//	}
-	//#endif
-
 	DKUtil::Logger::Init(Plugin::NAME, REL::Module::get().version().string());
 
 	SKSE::Init(a_skse);
 
 	INFO("{} v{} loaded", Plugin::NAME, Plugin::Version);
-
-	//if (REL::Module::IsSE()) {
-	//	ERROR("Skyrim Input Method is for 1.6.x");
-	//	return false;
-	//}
-
 	if (!SKSE::GetMessagingInterface()->RegisterListener(MessageHandler)) {
 		return false;
 	}
@@ -63,18 +51,10 @@ DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 	Hooks::InputManager::GetSingleton()->Install();
 	//Hooks::WindowsManager::GetSingleton()->Install();
 	Cicero::GetSingleton()->SetupSinks();
-	auto configs = Configs::GetSingleton();
-	configs->Load();
+	Configs::GetSingleton()->Load();
 
 #ifdef NDEBUG
-	if (configs->GetDebugMode()) {
-#endif
-		DebugHelper::GetSingleton()->Install();
-#ifdef NDEBUG
-		dku::Logger::EnableDebug(true);
-	} else {
-		dku::Logger::EnableDebug(false);
-	}
+	dku::Logger::EnableDebug(Configs::bDebug);
 #endif
 	return true;
 }

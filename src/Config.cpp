@@ -40,7 +40,7 @@ void ReadString(CSimpleIniA& a_ini, std::string_view a_section, std::string_view
 void LoadSettings(std::filesystem::path path)
 {
 	CSimpleIniA config;
-
+	ReadBoolean(config, "General", "debug", Configs::bDebug);
 	ReadInt32(config, "General", "candidate-size", Configs::iCandidateSize);
 
 	ReadString(config, "Font", "font", Configs::sFontPath);

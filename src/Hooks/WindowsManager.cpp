@@ -22,7 +22,7 @@ namespace Hooks
 		switch (uMsg) {
 		case WM_ACTIVATE:
 			if (wParam == WA_ACTIVE) {
-				DH_DEBUG("[WinProc WM_ACTIVATE] Window Activated");
+				DEBUG("[WinProc WM_ACTIVATE] Window Activated");
 				pIMEPanel->wstrComposition = std::wstring();
 			}
 			break;
@@ -34,7 +34,7 @@ namespace Hooks
 			case IMN_CHANGECANDIDATE:
 				int token = rand();
 
-				DH_DEBUG("[WinProc IME_NOTIFY#{}] WPARAM: {:X}", token, wParam);
+				DEBUG("[WinProc IME_NOTIFY#{}] WPARAM: {:X}", token, wParam);
 				pIMEPanel->bEnabled = IME_UI_ENABLED;
 				if (pControlMap->textEntryCount) {
 					Utils::UpdateCandidateList(hWnd);
@@ -43,11 +43,12 @@ namespace Hooks
 			return S_OK;
 
 		case WM_INPUTLANGCHANGE:
+			DEBUG("[WinProc WM_INPUTLANGCHANGE]");
 			Utils::UpdateInputMethodName((HKL)lParam);
 			break;
 
 		case WM_IME_STARTCOMPOSITION:
-			DH_DEBUG("[WinProc WM_IME_STARTCOMPOSITION]");
+			DEBUG("[WinProc WM_IME_STARTCOMPOSITION]");
 			if (pControlMap->textEntryCount) {  // Focusing on a input area
 				pIMEPanel->bEnabled = IME_UI_ENABLED;
 				pIMEPanel->bDisableSpecialKey = TRUE;
@@ -58,18 +59,18 @@ namespace Hooks
 			if (pControlMap->textEntryCount) {
 				// According ImeUI.cpp in DXUT, GCS_RESULTSTR Must
 				if (lParam & GCS_RESULTSTR) {
-					DH_DEBUG("[WinProc WM_IME_COMPOSITION] Updating Result String");
+					DEBUG("[WinProc WM_IME_COMPOSITION] Updating Result String");
 					Utils::GetResultString(hWnd);
 				}
 				if (lParam & GCS_COMPSTR) {
-					DH_DEBUG("[WinProc WM_IME_COMPOSITION] Updating Composition String");
+					DEBUG("[WinProc WM_IME_COMPOSITION] Updating Composition String");
 					Utils::UpdateInputContent(hWnd);
 				}
 			}
 			return S_OK;
 
 		case WM_IME_ENDCOMPOSITION:
-			DH_DEBUG("[WinProc WM_IME_ENDCOMPOSITION] Clearing candidate list and input content");
+			DEBUG("[WinProc WM_IME_ENDCOMPOSITION] Clearing candidate list and input content");
 			InterlockedExchange(&pIMEPanel->bEnabled, FALSE);
 
 			pIMEPanel->csImeInformation.Enter();
@@ -94,16 +95,16 @@ namespace Hooks
 
 		case WM_IME_SETSTATE:
 			if (lParam == WIME_STATE_ENABLE) {
-				DH_DEBUG("[WinProc WM_IME_SETSTATE] Enable IME");
+				DEBUG("[WinProc WM_IME_SETSTATE] Enable IME");
 				ImmAssociateContextEx(hWnd, NULL, IACE_DEFAULT);
 			} else {
-				DH_DEBUG("[WinProc WM_IME_SETSTATE] Disable IME");
+				DEBUG("[WinProc WM_IME_SETSTATE] Disable IME");
 				ImmAssociateContextEx(hWnd, NULL, NULL);
 			}
 			break;
 
 		case WM_CHAR:
-			DH_DEBUG("[WinProc WM_CHAR] Param: 0x{:X}", wParam);
+			DEBUG("[WinProc WM_CHAR] Param: 0x{:X}", wParam);
 			if (pControlMap->textEntryCount) {
 				if (wParam == VK_SPACE && GetKeyState(VK_LWIN) < 0) {
 					ActivateKeyboardLayout((HKL)HKL_NEXT, KLF_SETFORPROCESS);

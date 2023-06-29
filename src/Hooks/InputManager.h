@@ -25,18 +25,6 @@ namespace Hooks
 		HOOK_DEF_THIS(ControlMap_AllowTextInput, void, RE::ControlMap, bool);
 		HOOK_DEF_THIS(UIMessageQueue_AddMessage, void, RE::UIMessageQueue, const RE::BSFixedString&, RE::UI_MESSAGE_TYPE, RE::IUIMessageData*)
 
-		/*===========================
-		==========  Hooks  ==========
-		=============================*/
-		/// <summary>
-		/// Hook SendScaleformEvent(82182)+0x7D 调用 UIMessageQueue::AddMessage 的地方
-		/// </summary>
-		struct UIMessageQueue_AddMessage_Hook
-		{
-			static void __stdcall hooked(RE::UIMessageQueue* a_pThis, const RE::BSFixedString& a_menuName, RE::UI_MESSAGE_TYPE a_type, RE::IUIMessageData* a_data);
-			static inline REL::Relocation<decltype(hooked)> oldFunc;
-		};
-
 		struct DLL_DInput8_DirectInput8Create_Hook
 		{
 			static HRESULT WINAPI hooked(HINSTANCE a_hInstance, DWORD a_dwVersion, REFIID a_id, void* a_pvOut, IUnknown* a_pOuter);
