@@ -1,6 +1,9 @@
 #pragma once
 #include "detours/detours.h"
 
+#define DISABLE_IME(hwnd) PostMessage(hwnd, WM_IME_SETSTATE, NULL, 0)
+#define ENABLE_IME(hwnd) PostMessage(hwnd, WM_IME_SETSTATE, NULL, 1)
+
 template <class T>
 void SafeRelease(T** ppT)
 {

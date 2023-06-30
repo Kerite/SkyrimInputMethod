@@ -18,6 +18,7 @@ namespace Hooks
 	public:
 		void Install();
 
+		// Called by global._skse.AllowTextInput or
 		void ProcessAllowTextInput(bool a_increase);
 
 	private:

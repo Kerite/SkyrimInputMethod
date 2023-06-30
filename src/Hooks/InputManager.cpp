@@ -24,7 +24,7 @@ void Hooks::InputManager::ProcessAllowTextInput(bool a_bOpenInput)
 	if (!a_bOpenInput && currentCount == 1) {
 		DEBUG("Post WM_IME_SETSTATE DISABLE to {}", (uintptr_t)pIMEPanel->hWindow);
 		// Disable IME
-		PostMessage(pIMEPanel->hWindow, WM_IME_SETSTATE, NULL, 0);
+		DISABLE_IME(pIMEPanel->hWindow);
 
 		pIMEPanel->csImeInformation.Enter();
 		DEBUG("(ProcessAllowTextInput) Clearing CandidateList")
@@ -35,7 +35,7 @@ void Hooks::InputManager::ProcessAllowTextInput(bool a_bOpenInput)
 	} else if (a_bOpenInput && currentCount == 0) {
 		DEBUG("Post WM_IME_SETSTATE ENABLE to {}", (uintptr_t)pIMEPanel->hWindow);
 		// Enable IME
-		PostMessage(pIMEPanel->hWindow, WM_IME_SETSTATE, NULL, 1);
+		ENABLE_IME(pIMEPanel->hWindow);
 	}
 }
 

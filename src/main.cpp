@@ -4,11 +4,11 @@
 #include "RE/CustomRE.h"
 
 #include "Cirero.h"
+#include "EventsHandler.h"
 #include "Hooks/InputManager.h"
 #include "Hooks/RendererManager.h"
-#include "Hooks/SKSEManager.h"
+#include "Hooks/ScaleformManager.h"
 #include "Hooks/WindowsManager.h"
-#include "ScaleformManager.h"
 
 #include "Config.h"
 
@@ -24,8 +24,8 @@ namespace
 			}
 			break;
 		case SKSE::MessagingInterface::kInputLoaded:
-			Hooks::SKSEManager::GetSingleton()->Install();
-			ScaleformManager::GetSingleton()->Install();
+			Hooks::ScaleformManager::GetSingleton()->Install();
+			EventsHandler::GetSingleton()->Install();
 			break;
 		case SKSE::MessagingInterface::kDataLoaded:
 			break;

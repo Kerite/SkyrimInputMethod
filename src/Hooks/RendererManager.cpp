@@ -28,7 +28,7 @@ void PutStyles(ImGuiStyle& a_pStyle)
 {
 	a_pStyle.WindowBorderSize = 0.f;
 	a_pStyle.WindowTitleAlign = ImVec2(0.5f, 0.5f);
-	a_pStyle.WindowRounding = 10.f;
+	a_pStyle.WindowRounding = 7.f;
 }
 
 #pragma region Hooks_Impl

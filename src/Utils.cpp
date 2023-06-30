@@ -4,7 +4,7 @@
 #include "Config.h"
 #include "InputPanel.h"
 #include "RE/CustomRE.h"
-#include "ScaleformManager.h"
+#include "EventsHandler.h"
 
 #define BUFFER_SIZE 400
 
@@ -257,7 +257,7 @@ namespace Utils
 	{
 		DEBUG("Pasting text");
 		Configs* pConfigs = Configs::GetSingleton();
-		ScaleformManager* pScaleformManager = ScaleformManager::GetSingleton();
+		EventsHandler* pScaleformManager = EventsHandler::GetSingleton();
 		if (!pConfigs->bAllowPasteInConsole && InterlockedCompareExchange(&pScaleformManager->bConsoleOpenState, pScaleformManager->bConsoleOpenState, 0xFF)) {
 			DEBUG("Console is opened and another copy-paste mod installed, cancel");
 			return;

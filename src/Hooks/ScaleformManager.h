@@ -2,7 +2,7 @@
 
 namespace Hooks
 {
-	class SKSEManager final : public Singleton<SKSEManager>
+	class ScaleformManager final : public Singleton<ScaleformManager>
 	{
 	public:
 		void Install();

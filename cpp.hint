@@ -3,3 +3,5 @@
 // For more information see https://go.microsoft.com/fwlink/?linkid=865984
 #define HOOK_DEF_THIS(hookName, retName, thisName, __VA_ARGS__) struct Hook_##hookName { static retName __fastcall hooked(thisName*, __VA_ARGS__); static inline REL::Relocation<decltype(hooked)> oldFunc; };
 #define HOOK_DEF(seId, aeId, seOffset, aeOffset, hookName, retName, __VA_ARGS__) struct Hook_##hookName { static retName __fastcall hooked(__VA_ARGS__); static constexpr auto id = REL::RelocationID(seId, aeId); static constexpr auto offset = REL::VariantOffset(seOffset, aeOffset, 0x00); static inline REL::Relocation<decltype(hooked)> oldFunc; };
+#define DLLEXPORT extern "C" [[maybe_unused]] __declspec(dllexport)
+#define SKSEAPI
