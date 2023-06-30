@@ -2,7 +2,6 @@
 
 #include <dinput.h>
 
-#include "Helpers/DebugHelper.h"
 #include "RE/Offset.h"
 
 #define WIME_STATE_DISABLE 0

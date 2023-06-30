@@ -3,7 +3,6 @@
 #include "detours/Detours.h"
 
 #include "Config.h"
-#include "Helpers/DebugHelper.h"
 #include "Hooks/WindowsManager.h"
 #include "InputPanel.h"
 #include "RE/CustomRE.h"

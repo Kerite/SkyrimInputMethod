@@ -2,7 +2,6 @@
 
 #include "Cirero.h"
 #include "Config.h"
-#include "Helpers/DebugHelper.h"
 #include "Utils.h"
 
 void IMEPanel::Initialize(HWND hWnd)

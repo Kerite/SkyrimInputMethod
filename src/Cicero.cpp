@@ -1,6 +1,5 @@
 #include "Cirero.h"
 
-#include "Helpers/DebugHelper.h"
 #include "InputPanel.h"
 #include "Utils.h"
 

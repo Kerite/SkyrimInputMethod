@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Helpers/DebugHelper.h"
-
 class ScaleformManager :
 	public Singleton<ScaleformManager>,
 	public RE::BSTEventSink<RE::MenuOpenCloseEvent>

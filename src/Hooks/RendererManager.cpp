@@ -4,7 +4,6 @@
 
 #include "Cirero.h"
 #include "Config.h"
-#include "Helpers/DebugHelper.h"
 #include "InputPanel.h"
 #include "Utils.h"
 #include "WindowsManager.h"
