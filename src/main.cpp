@@ -20,7 +20,7 @@ namespace
 		switch (a_msg->type) {
 		case SKSE::MessagingInterface::kPostPostLoad:
 			if (GetModuleHandle(L"po3_ConsolePlusPlus.dll")) {
-				DH_INFO("ConsolePlusPlus detected, disable paste in console");
+				INFO("ConsolePlusPlus detected, disable paste in console");
 				Configs::GetSingleton()->bAllowPasteInConsole = false;
 			}
 			break;

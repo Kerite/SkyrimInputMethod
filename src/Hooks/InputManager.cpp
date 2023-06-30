@@ -28,7 +28,7 @@ void Hooks::InputManager::ProcessAllowTextInput(bool a_bOpenInput)
 		PostMessage(pIMEPanel->hWindow, WM_IME_SETSTATE, NULL, 0);
 
 		pIMEPanel->csImeInformation.Enter();
-		DH_DEBUG("(ProcessAllowTextInput) Clearing CandidateList")
+		DEBUG("(ProcessAllowTextInput) Clearing CandidateList")
 		pIMEPanel->vwsCandidateList.clear();
 		pIMEPanel->wstrComposition.clear();
 		pIMEPanel->bEnabled = IME_UI_DISABLED;

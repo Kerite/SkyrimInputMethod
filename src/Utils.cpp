@@ -69,6 +69,8 @@ namespace Utils
 		RE::MemoryManager* pMemoryManager = RE::MemoryManager::GetSingleton();
 		if (pMemoryManager) {
 			return pMemoryManager->Allocate(size, 0, false);
+		} else {
+			spdlog::error("Failed alloc heap");
 		}
 		return nullptr;
 	}
@@ -78,6 +80,7 @@ namespace Utils
 		RE::MemoryManager* pMemoryManager = RE::MemoryManager::GetSingleton();
 		if (pMemoryManager) {
 			pMemoryManager->Deallocate(ptr, false);
+		} else {
 			spdlog::error("Failed free heap");
 		}
 	}
@@ -88,31 +91,31 @@ namespace Utils
 			// When TFS is enabled, candidate list is fetched from TFS
 			return;
 		}
-		DH_DEBUG("[Utils::UpdateCandidateList] == Start ==");
+		DEBUG("[Utils::UpdateCandidateList] == Start ==");
 		IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 		HIMC hIMC = ImmGetContext(hWnd);
 		if (hIMC == nullptr) {
-			DH_DEBUG("[Utils::UpdateCandidateList] == Finish == Context is null, cancel")
+			DEBUG("[Utils::UpdateCandidateList] == Finish == Context is null, cancel")
 			return;
 		}
 		DWORD dwBufLen = ImmGetCandidateList(hIMC, 0, nullptr, 0);  // Get size first
 		if (!dwBufLen) {
 			ImmReleaseContext(hWnd, hIMC);
-			DH_DEBUG("[Utils::UpdateCandidateList] == Finish == Candidate list is empty, cancel")
+			DEBUG("[Utils::UpdateCandidateList] == Finish == Candidate list is empty, cancel")
 			return;
 		}
 		std::unique_ptr<CANDIDATELIST, void(__cdecl*)(void*)> pCandidateList(
 			reinterpret_cast<LPCANDIDATELIST>(HeapAlloc(dwBufLen)), HeapFree);
 		if (!pCandidateList) {
 			ImmReleaseContext(hWnd, hIMC);
-			DH_DEBUG("[Utils::UpdateCandidateList] == Finish == Alocation memory is empty, cancel")
+			DEBUG("[Utils::UpdateCandidateList] == Finish == Alocation memory is empty, cancel")
 			return;
 		}
 		ImmGetCandidateList(hIMC, 0, pCandidateList.get(), dwBufLen);
-		DH_DEBUG("CandidateList.dwStyle: {}", pCandidateList->dwStyle);
+		DEBUG("CandidateList.dwStyle: {}", pCandidateList->dwStyle);
 		if (pCandidateList->dwStyle != IME_CAND_CODE) {
-			DH_DEBUG("CandidateList dwCount: {}, dwSize: {}", pCandidateList->dwCount, pCandidateList->dwSize);
-			DH_DEBUG("CandidateList dwSelection: {}, dwPageStart: {}", pCandidateList->dwSelection, pCandidateList->dwPageStart);
+			DEBUG("CandidateList dwCount: {}, dwSize: {}", pCandidateList->dwCount, pCandidateList->dwSize);
+			DEBUG("CandidateList dwSelection: {}, dwPageStart: {}", pCandidateList->dwSelection, pCandidateList->dwPageStart);
 
 			InterlockedExchange(&pIMEPanel->ulSlectedIndex, pCandidateList->dwSelection);
 			InterlockedExchange(&pIMEPanel->ulPageStartIndex, pCandidateList->dwPageStart);
@@ -127,12 +130,12 @@ namespace Utils
 				std::wstring temp(buffer);
 				temp += pSubStr;
 				pIMEPanel->vwsCandidateList.push_back(temp);
-				DH_DEBUGW(L"(IMM) {}", temp);
+				DEBUG("(IMM) {}", Utils::WideStringToString(temp));
 			}
 			pIMEPanel->csImeInformation.Leave();
 		}
 		ImmReleaseContext(hWnd, hIMC);
-		DH_DEBUG("[Utils::UpdateCandidateList] == Finish ==\n");
+		DEBUG("[Utils::UpdateCandidateList] == Finish ==\n");
 	}
 
 	void UpdateInputContent(const HWND& hWnd)
@@ -144,10 +147,10 @@ namespace Utils
 		IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 		HIMC hImc = ImmGetContext(hWnd);
 		LONG uNeededBytes, uStrLen;
-		DH_DEBUG("= START FUNC = Utils::UpdateInputContent");
+		DEBUG("= START FUNC = Utils::UpdateInputContent");
 		uNeededBytes = ImmGetCompositionString(hImc, GCS_COMPSTR, NULL, 0);
 		if (!uNeededBytes) {
-			DH_DEBUG("Composition String is empty, cancel");
+			DEBUG("Composition String is empty, cancel");
 			ImmReleaseContext(hWnd, hImc);
 			return;
 		}
@@ -162,26 +165,26 @@ namespace Utils
 
 			pIMEPanel->csImeInformation.Enter();
 			pIMEPanel->wstrComposition = std::wstring(szCompStr.get());
-			DH_DEBUGW(L"(IMM) Update InputContent: {}, Length: {}", pIMEPanel->wstrComposition, pIMEPanel->wstrComposition.size());
+			DEBUG("(IMM) Update InputContent: {}, Length: {}", Utils::WideStringToString(pIMEPanel->wstrComposition), pIMEPanel->wstrComposition.size());
 			pIMEPanel->csImeInformation.Leave();
 		} else {
-			DH_DEBUG("Allocation of szCompStr Failed");
+			DEBUG("Allocation of szCompStr Failed");
 		}
 		ImmReleaseContext(hWnd, hImc);
-		DH_DEBUG("= END FUNC = Utils::UpdateInputContent");
+		DEBUG("= END FUNC = Utils::UpdateInputContent");
 	}
 
 	void GetResultString(const HWND& hWnd)
 	{
-		DH_DEBUG("[Utils::GetResultString] == Start ==");
+		DEBUG("[Utils::GetResultString] == Start ==");
 		HIMC hImc = ImmGetContext(hWnd);
 		if (!hImc) {
-			DH_DEBUG("[Utils::GetResultString] Context is empty, cancel\n");
+			DEBUG("[Utils::GetResultString] Context is empty, cancel\n");
 			return;
 		}
 		DWORD bufferSize = ImmGetCompositionString(hImc, GCS_RESULTSTR, nullptr, 0);
 		if (!bufferSize) {
-			DH_DEBUG("[Utils::GetResultString] Composition is empty, cancel\n");
+			DEBUG("[Utils::GetResultString] Composition is empty, cancel\n");
 			ImmReleaseContext(hWnd, hImc);
 			return;
 		}
@@ -189,7 +192,7 @@ namespace Utils
 		std::unique_ptr<WCHAR[], void(__cdecl*)(void*)> pBuffer(
 			reinterpret_cast<WCHAR*>(HeapAlloc(bufferSize)), HeapFree);
 		if (!pBuffer) {
-			DH_DEBUG("[Utils::GetResultString] Composition is empty, cancel\n");
+			DEBUG("[Utils::GetResultString] Composition is empty, cancel\n");
 			ImmReleaseContext(hWnd, hImc);
 			return;
 		}
@@ -204,7 +207,7 @@ namespace Utils
 			}
 		}
 		ImmReleaseContext(hWnd, hImc);
-		DH_DEBUG("[Utils::GetResultString] == Finish ==\n");
+		DEBUG("[Utils::GetResultString] == Finish ==\n");
 	}
 
 	void UpdateInputMethodName(HKL hkl)
@@ -217,7 +220,7 @@ namespace Utils
 		UINT uByteLength = ImmGetIMEFileNameW(hkl, NULL, 0);
 		ImmGetIMEFileNameW(hkl, buffer, uByteLength);
 		IMEPanel::GetSingleton()->wstrInputMethodName = std::wstring(buffer);
-		DH_DEBUGW(L"[Utils::UpdateInputMethodName] Method Name: {}", IMEPanel::GetSingleton()->wstrInputMethodName);
+		DEBUG("[Utils::UpdateInputMethodName] Method Name: {}", Utils::WideStringToString(IMEPanel::GetSingleton()->wstrInputMethodName));
 	}
 
 	bool SendUnicodeMessage(UINT32 code)
@@ -246,7 +249,7 @@ namespace Utils
 		pScaleFormMessageData->scaleformEvent = pCharEvent;
 		RE::BSFixedString menuName = pInterfaceStrings->topMenu;
 
-		DH_DEBUGW(L"(Utils::SendUnicodeMessage) Sending {}", code);
+		DEBUG("(Utils::SendUnicodeMessage) Sending {}", code);
 
 		RE::UIMessageQueue::GetSingleton()->AddMessage(menuName, RE::UI_MESSAGE_TYPE::kScaleformEvent, pScaleFormMessageData);
 		return true;
@@ -254,11 +257,11 @@ namespace Utils
 
 	void GetClipboard()
 	{
-		DH_DEBUG("Pasting text");
+		DEBUG("Pasting text");
 		Configs* pConfigs = Configs::GetSingleton();
 		ScaleformManager* pScaleformManager = ScaleformManager::GetSingleton();
 		if (!pConfigs->bAllowPasteInConsole && InterlockedCompareExchange(&pScaleformManager->bConsoleOpenState, pScaleformManager->bConsoleOpenState, 0xFF)) {
-			DH_DEBUG("Console is opened and another copy-paste mod installed, cancel");
+			DEBUG("Console is opened and another copy-paste mod installed, cancel");
 			return;
 		}
 

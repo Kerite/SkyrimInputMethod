@@ -259,7 +259,7 @@ STDAPI Cicero::OnEndEdit(ITfContext* cxt, TfEditCookie ecReadOnly, ITfEditRecord
 
 				IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 				pIMEPanel->csImeInformation.Enter();
-				DH_DEBUGW(L"(TSF) Set Composition String: {}", result);
+				DEBUG("(TSF) Set Composition String: {}", Utils::WideStringToString(result));
 				pIMEPanel->wstrComposition = result;
 				pIMEPanel->csImeInformation.Leave();
 
@@ -405,7 +405,7 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* a_pCandidate)
 				continue;
 			}
 			wsprintf(candidateBuffer, L"%d. %s", i + 1, result);
-			DH_DEBUGW(L"(TSF) {}", candidateBuffer);
+			DEBUG("(TSF) {}", Utils::WideStringToString(candidateBuffer));
 			std::wstring temp(candidateBuffer);
 
 			pIMEPanel->vwsCandidateList.push_back(temp);
@@ -451,7 +451,7 @@ HRESULT Cicero::UpdateCurrentInputMethodName()
 	pIMEPanel->wstrInputMethodName = std::wstring(lastTipName);
 	pIMEPanel->csImeInformation.Leave();
 
-	DH_DEBUGW(L"[TSF] Current Input Method: {}", lastTipName);
+	DEBUG("[TSF] Current Input Method: {}", Utils::WideStringToString(lastTipName));
 	return hr;
 }
 

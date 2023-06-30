@@ -113,12 +113,12 @@ namespace Hooks
 {
 	void RendererManager::Install()
 	{
-		DH_INFO("Installing RendererManager");
+		INFO("Installing RendererManager");
 
-		DH_INFO("Installing InitD3D Hook");
+		INFO("Installing InitD3D Hook");
 		Utils::Hook::WriteCall<Hook_InitD3D>();
 
-		DH_INFO("Installing Present Hook");
+		INFO("Installing Present Hook");
 		Utils::Hook::WriteCall<Hook_Present>();
 	}
 }
