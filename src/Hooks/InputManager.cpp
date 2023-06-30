@@ -94,8 +94,12 @@ void Hooks::InputManager::Hook_UIMessageQueue_AddMessage::hooked(RE::UIMessageQu
 
 namespace Hooks
 {
+	using namespace DKUtil::Alias;
+	constexpr OpCode NOP[]{ 0x90, 0x90 };
+
 	void InputManager::Install()
 	{
+		constexpr Patch NopPatch = { std::addressof(NOP), sizeof(NOP) };
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 
@@ -111,6 +115,26 @@ namespace Hooks
 
 		INFO("Installing dinput8.dll DirectInput8Create Hook");
 		DLL_DInput8_DirectInput8Create_Hook::oldFunc = SKSE::PatchIAT(DLL_DInput8_DirectInput8Create_Hook::hooked, "dinput8.dll", "DirectInput8Create");
+
+		constexpr int offsetRM1SE = 0x8B13A5 - 0x8B1360;  // 0x45
+		constexpr int offsetRM1AE = 0x8F3803 - 0x8F37C0;  // 0x43
+		auto offsetRM1 = REL::Relocate(offsetRM1SE, offsetRM1AE);
+		dku::Hook::AddASMPatch(RELOCATION_ID(51488, 52350).address(), { offsetRM1, offsetRM1 + 0x2 }, &NopPatch)->Enable();
+
+		constexpr int offsetEM1SE = 0x863199 - 0x862C80;  // 0x519
+		constexpr int offsetEM1AE = 0x8A2CFA - 0x890440;  // 0x4BA
+		auto offsetEM1 = REL::Relocate(offsetEM1SE, offsetEM1AE);
+		dku::Hook::AddASMPatch(RELOCATION_ID(50274, 51200).address(), { offsetEM1, offsetEM1 + 0x2 }, &NopPatch)->Enable();
+
+		constexpr int offsetRM2SE = 0x86DED1 - 0x86DE80;  // 0x51
+		constexpr int offsetRM2AE = 0x8AE699 - 0x8AE650;  // 0x49
+		auto offsetRM2 = REL::Relocate(offsetRM2SE, offsetRM2AE);
+		dku::Hook::AddASMPatch(RELOCATION_ID(50473, 51366).address(), { offsetRM2, offsetRM2 + 0x2 }, &NopPatch)->Enable();
+
+		constexpr int offsetRM3SE = 0x8B0733 - 0x8B0200;  // 0x533
+		constexpr int offsetRM3AE = 0x8F2979 - 0x8F2510;  // 0x469
+		auto offsetRM3 = REL::Relocate(offsetRM3SE, offsetRM3AE);
+		dku::Hook::AddASMPatch(RELOCATION_ID(51483, 52345).address(), { offsetRM3, offsetRM3 + 0x2 }, &NopPatch)->Enable();
 	}
 
 	HRESULT WINAPI InputManager::DLL_DInput8_DirectInput8Create_Hook::hooked(HINSTANCE a_hInstance, DWORD a_dwVersion, REFIID a_id, void* a_pvOut, IUnknown* a_pOuter)
