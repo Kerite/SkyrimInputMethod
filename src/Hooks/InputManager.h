@@ -4,9 +4,6 @@
 
 #include "RE/Offset.h"
 
-#define WIME_STATE_DISABLE 0
-#define WIME_STATE_ENABLE 1
-
 // Hook 的位置：ID 82182 偏移 0x7D（0xF1C6CD-0xF1C650）调用AddMessage的位置
 
 namespace Hooks
@@ -18,12 +15,12 @@ namespace Hooks
 	public:
 		void Install();
 
-		// Called by global._skse.AllowTextInput or
 		void ProcessAllowTextInput(bool a_increase);
 
 	private:
-		HOOK_DEF_THIS(ControlMap_AllowTextInput, void, RE::ControlMap, bool);
-		HOOK_DEF_THIS(UIMessageQueue_AddMessage, void, RE::UIMessageQueue, const RE::BSFixedString&, RE::UI_MESSAGE_TYPE, RE::IUIMessageData*)
+		CALL_DEF(80079, 82182, 0x9C, 0x7D, UIMessageQueue_AddMessage, void, RE::UIMessageQueue*, const RE::BSFixedString&, RE::UI_MESSAGE_TYPE, RE::IUIMessageData*);
+
+		DETOUR_DEF(67252, 68552, ControlMap_AllowTextInput, void, RE::ControlMap*, bool);
 
 		struct DLL_DInput8_DirectInput8Create_Hook
 		{

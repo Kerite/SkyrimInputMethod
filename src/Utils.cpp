@@ -2,9 +2,9 @@
 
 #include "Cirero.h"
 #include "Config.h"
+#include "EventsHandler.h"
 #include "InputPanel.h"
 #include "RE/CustomRE.h"
-#include "EventsHandler.h"
 
 #define BUFFER_SIZE 400
 
@@ -115,8 +115,8 @@ namespace Utils
 			DEBUG("CandidateList dwCount: {}, dwSize: {}", pCandidateList->dwCount, pCandidateList->dwSize);
 			DEBUG("CandidateList dwSelection: {}, dwPageStart: {}", pCandidateList->dwSelection, pCandidateList->dwPageStart);
 
-			InterlockedExchange(&pIMEPanel->ulSlectedIndex, pCandidateList->dwSelection);
-			InterlockedExchange(&pIMEPanel->ulPageStartIndex, pCandidateList->dwPageStart);
+			pIMEPanel->m_ulSlectedIndex.store(pCandidateList->dwSelection);
+			pIMEPanel->m_ulPageStartIndex.store(pCandidateList->dwPageStart);
 
 			WCHAR buffer[MAX_PATH];
 

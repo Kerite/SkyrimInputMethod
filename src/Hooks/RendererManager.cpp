@@ -91,7 +91,7 @@ void Hooks::RendererManager::Hook_InitD3D::hooked()
 	Hooks::WindowsManager::GetSingleton()->Install(desc.OutputWindow);
 }
 
-void Hooks::RendererManager::Hook_Present::hooked(std::uint32_t a_p1)
+void Hooks::RendererManager::Hook_D3D_Present::hooked(std::uint32_t a_p1)
 {
 	oldFunc(a_p1);
 	if (!RendererManager::GetSingleton()->m_bInitialized.load()) {
@@ -115,9 +115,9 @@ namespace Hooks
 		INFO("Installing RendererManager");
 
 		INFO("Installing InitD3D Hook");
-		Utils::Hook::WriteCall<Hook_InitD3D>();
+		Hook_InitD3D::Install();
 
 		INFO("Installing Present Hook");
-		Utils::Hook::WriteCall<Hook_Present>();
+		Hook_D3D_Present::Install();
 	}
 }

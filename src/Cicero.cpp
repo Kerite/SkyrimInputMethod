@@ -176,7 +176,7 @@ STDAPI Cicero::BeginUIElement(DWORD dwUIElementId, BOOL* pbShow)
 	IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 	ITfUIElement* pElement = GetUIElement(dwUIElementId);
 
-	pIMEPanel->bEnabled = IME_UI_ENABLED;
+	pIMEPanel->m_bEnabled.store(true);
 	if (!pElement) {
 		return E_INVALIDARG;
 	}
@@ -359,48 +359,48 @@ void Cicero::UpdateCandidateList(ITfCandidateListUIElement* a_pCandidate)
 	IMEPanel* pIMEPanel = IMEPanel::GetSingleton();
 	Configs* pConfigs = Configs::GetSingleton();
 
-	if (pIMEPanel->bEnabled) {
-		UINT uSelectedIndex = 0, uCount = 0, uCurrentPage = 0, uPageCount = 0;
-		DWORD dwPageStart = 0, dwCurrentPageSize = 0, dwPageSelection = 0;
+	if (pIMEPanel->m_bEnabled.load()) {
+		std::uint32_t uSelection = 0, uCount = 0, uCurrentPageIndex = 0, uPageCount = 0, uPageStartIndex = 0;
+		std::int32_t iCurrentPageSize = 0;
 
 		BSTR result = nullptr;
 
-		a_pCandidate->GetSelection(&uSelectedIndex);
+		a_pCandidate->GetSelection(&uSelection);
 		a_pCandidate->GetCount(&uCount);
-		a_pCandidate->GetCurrentPage(&uCurrentPage);
-
-		dwPageSelection = static_cast<DWORD>(uSelectedIndex);
+		a_pCandidate->GetCurrentPage(&uCurrentPageIndex);
 		a_pCandidate->GetPageIndex(nullptr, 0, &uPageCount);
-		DEBUG("(TSF) Updating CandidateList, Selection: {}, Count: {}, CurrentPage: {}, PageCount: {}", uSelectedIndex, uCount, uCurrentPage, uPageCount);
+
+		//dwPageSelection = static_cast<DWORD>(uSelection);
+		DEBUG("(TSF) Updating CandidateList, Selection: {}, Count: {}, CurrentPage: {}, PageCount: {}", uSelection, uCount, uCurrentPageIndex, uPageCount);
 		if (uPageCount > 0) {
 			std::unique_ptr<UINT[], void(__cdecl*)(void*)> indexList(
 				reinterpret_cast<UINT*>(Utils::HeapAlloc(sizeof(UINT) * uPageCount)),
 				Utils::HeapFree);
 			a_pCandidate->GetPageIndex(indexList.get(), uPageCount, &uPageCount);
-			dwPageStart = indexList[uCurrentPage];
-			if (uCurrentPage == uPageCount - 1) {
+			uPageStartIndex = indexList[uCurrentPageIndex];
+			if (uCurrentPageIndex == uPageCount - 1) {
 				// Last page
-				dwCurrentPageSize = uCount - dwPageStart;
+				iCurrentPageSize = uCount - uPageStartIndex;
 			} else {
-				dwCurrentPageSize = std::min(uCount, indexList[uCurrentPage + 1]) - dwPageStart;
+				iCurrentPageSize = std::min(uCount, indexList[uCurrentPageIndex + 1]) - uPageStartIndex;
 			}
 		}
-		dwCurrentPageSize = std::min<DWORD>(dwCurrentPageSize, Configs::iCandidateSize);
-		if (dwCurrentPageSize)  // If current page size > 0, disable special keys
-			InterlockedExchange(&pIMEPanel->bDisableSpecialKey, TRUE);
+		iCurrentPageSize = std::min<std::int32_t>(iCurrentPageSize, Configs::iCandidateSize);
+		if (iCurrentPageSize)  // If current page size > 0, disable special keys
+			pIMEPanel->m_bDisableSpecialKey.store(true);
 
-		DEBUG("(TSF) SelectedIndex in current page: {}, PageStartIndex: {}", dwPageSelection, dwPageStart);
+		DEBUG("(TSF) SelectedIndex in current page: {}, PageStartIndex: {}", uSelection, uPageStartIndex);
 
 		// Update Candidate Page Information to IMEPanel
-		InterlockedExchange(&pIMEPanel->ulSlectedIndex, dwPageSelection);
-		InterlockedExchange(&pIMEPanel->ulPageStartIndex, dwPageStart);
+		pIMEPanel->m_ulSlectedIndex.store(uSelection);
+		pIMEPanel->m_ulPageStartIndex.store(uPageStartIndex);
 
 		WCHAR candidateBuffer[MAX_PATH];
 
 		pIMEPanel->csImeInformation.Enter();
 		pIMEPanel->vwsCandidateList.clear();
-		for (int i = 0; i <= dwCurrentPageSize; i++) {
-			if (FAILED(a_pCandidate->GetString(i + dwPageStart, &result)) || !result) {
+		for (int i = 0; i <= iCurrentPageSize; i++) {
+			if (FAILED(a_pCandidate->GetString(i + uPageStartIndex, &result)) || !result) {
 				continue;
 			}
 			wsprintf(candidateBuffer, L"%d. %s", i + 1, result);

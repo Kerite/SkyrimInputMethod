@@ -1,5 +1,4 @@
 #pragma once
-#include "detours/detours.h"
 
 #define DISABLE_IME(hwnd) PostMessage(hwnd, WM_IME_SETSTATE, NULL, 0)
 #define ENABLE_IME(hwnd) PostMessage(hwnd, WM_IME_SETSTATE, NULL, 1)
@@ -13,62 +12,9 @@ void SafeRelease(T** ppT)
 	}
 }
 
-namespace Utils::Hook
-{
-	template <class T>
-	void DetourAttach(std::uintptr_t a_pAddress)
-	{
-		T::oldFunc = a_pAddress;
-		::DetourAttach(reinterpret_cast<void**>(&T::oldFunc), reinterpret_cast<void*>(T::hooked));
-	}
-
-	template <class T>
-	void WriteCall(std::uintptr_t a_address)
-	{
-		SKSE::AllocTrampoline(14);
-		auto& trampoline = SKSE::GetTrampoline();
-		T::oldFunc = trampoline.write_call<5>(a_address, T::hooked);
-	}
-
-	template <class T>
-	void WriteCall()
-	{
-		SKSE::AllocTrampoline(14);
-		auto& trampoline = SKSE::GetTrampoline();
-		REL::Relocation<std::uint32_t> hook{ T::id, T::offset };
-		T::oldFunc = trampoline.write_call<5>(hook.address(), T::hooked);
-	}
-
-	void inline DetourStartup()
-	{
-		DetourTransactionBegin();
-		DetourUpdateThread(GetCurrentThread());
-	}
-
-	void inline DetourFinish()
-	{
-		DetourTransactionCommit();
-	}
-}
-
 namespace Utils
 {
 	std::string WideStringToString(const std::wstring wstr);
-
-	template <class T>
-	void DetourAttach(REL::ID id)
-	{
-		T::oldFunc = REL::Relocation<decltype(&T::hooked)>(id).get();
-		::DetourAttach(reinterpret_cast<void**>(&T::oldFunc), reinterpret_cast<void*>(T::hooked));
-	}
-
-	template <class T>
-	void WriteCall(std::uintptr_t a_address)
-	{
-		SKSE::AllocTrampoline(14);
-		auto& trampoline = SKSE::GetTrampoline();
-		T::oldFunc = trampoline.write_call<5>(a_address, T::hooked);
-	}
 
 	/// Convert Utf-8 string to ANSI string
 	std::string ConvertToANSI(std::string s, UINT sourceCodePage = CP_UTF8);

@@ -48,7 +48,6 @@ DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 
 	Hooks::RendererManager::GetSingleton()->Install();
 	Hooks::InputManager::GetSingleton()->Install();
-	//Hooks::WindowsManager::GetSingleton()->Install();
 	Cicero::GetSingleton()->SetupSinks();
 	Configs::GetSingleton()->Load();
 

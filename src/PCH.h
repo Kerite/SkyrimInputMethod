@@ -124,26 +124,55 @@ using namespace REL::literals;
 #include "DKUtil/Hook.hpp"
 #include "DKUtil/Logger.hpp"
 #include "DKUtil/Utility.hpp"
+#include "detours/detours.h"
 
 using namespace dku::model;
 
-#define HOOK_DEF_THIS(hookName, retName, thisName, ...)           \
-	struct Hook_##hookName                                        \
-	{                                                             \
-		static retName __fastcall hooked(thisName*, __VA_ARGS__); \
-		static inline REL::Relocation<decltype(hooked)> oldFunc;  \
-	};
-#define HOOK_IMPL_THIS(managerName, hookName, retName, thisName, ...) \
-	retName __fastcall managerName::Hook_##hookName::hooked(thisName* a_pThis, __VA_ARGS__)
-
-#define HOOK_DEF(seId, aeId, seOffset, aeOffset, hookName, retName, ...)             \
+#define CALL_DEF(seId, aeId, seOffset, aeOffset, hookName, retName, ...)             \
 	struct Hook_##hookName                                                           \
 	{                                                                                \
 		static retName __fastcall hooked(__VA_ARGS__);                               \
 		static constexpr auto id = REL::RelocationID(seId, aeId);                    \
 		static constexpr auto offset = REL::VariantOffset(seOffset, aeOffset, 0x00); \
 		static inline REL::Relocation<decltype(hooked)> oldFunc;                     \
-	};
+		static void Install()                                                        \
+		{                                                                            \
+			SKSE::AllocTrampoline(14);                                               \
+			auto& trampoline = SKSE::GetTrampoline();                                \
+			REL::Relocation<std::uint32_t> hook{ id, offset };                       \
+			oldFunc = trampoline.write_call<5>(hook.address(), hooked);              \
+		}                                                                            \
+	}
 
-#define HOOK_IMPL(managerName, hookName, ...) \
-	__fastcall managerName::Hook_##hookName::hooked(__VA_ARGS__)
+#define CALL_DEF6(seId, aeId, seOffset, aeOffset, hookName, retName, ...)            \
+	struct Hook_##hookName                                                           \
+	{                                                                                \
+		static retName __fastcall hooked(__VA_ARGS__);                               \
+		static constexpr auto id = REL::RelocationID(seId, aeId);                    \
+		static constexpr auto offset = REL::VariantOffset(seOffset, aeOffset, 0x00); \
+		static inline REL::Relocation<decltype(&hooked)> oldFunc;                    \
+		static void Install()                                                        \
+		{                                                                            \
+			SKSE::AllocTrampoline(14);                                               \
+			auto& trampoline = SKSE::GetTrampoline();                                \
+			REL::Relocation<std::uintptr_t> hook{ id, offset };                      \
+			auto ptr = trampoline.write_call<6>(hook.address(), &hooked);            \
+			oldFunc = *reinterpret_cast<std::uintptr_t*>(ptr);                       \
+		}                                                                            \
+	}
+
+#define DETOUR_DEF(seID, aeID, hookName, retName, ...)                                           \
+	struct Hook_##hookName                                                                       \
+	{                                                                                            \
+		static retName __fastcall hooked(__VA_ARGS__);                                           \
+		static constexpr auto id = REL::RelocationID(seID, aeID);                                \
+		static inline REL::Relocation<decltype(hooked)> oldFunc;                                 \
+		static void Install()                                                                    \
+		{                                                                                        \
+			oldFunc = id.address();                                                              \
+			::DetourAttach(reinterpret_cast<void**>(&oldFunc), reinterpret_cast<void*>(hooked)); \
+		}                                                                                        \
+	}
+
+#define WIME_STATE_DISABLE 0
+#define WIME_STATE_ENABLE 1

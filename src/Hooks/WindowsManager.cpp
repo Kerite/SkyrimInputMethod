@@ -34,7 +34,7 @@ namespace Hooks
 				int token = rand();
 
 				DEBUG("[WinProc IME_NOTIFY#{}] WPARAM: {:X}", token, wParam);
-				pIMEPanel->bEnabled = IME_UI_ENABLED;
+				pIMEPanel->m_bEnabled.store(true);
 				if (pControlMap->textEntryCount) {
 					Utils::UpdateCandidateList(hWnd);
 				}
@@ -49,8 +49,8 @@ namespace Hooks
 		case WM_IME_STARTCOMPOSITION:
 			DEBUG("[WinProc WM_IME_STARTCOMPOSITION]");
 			if (pControlMap->textEntryCount) {  // Focusing on a input area
-				pIMEPanel->bEnabled = IME_UI_ENABLED;
-				pIMEPanel->bDisableSpecialKey = TRUE;
+				pIMEPanel->m_bEnabled.store(true);
+				pIMEPanel->m_bDisableSpecialKey.store(true);
 			}
 			return S_OK;
 
@@ -70,7 +70,7 @@ namespace Hooks
 
 		case WM_IME_ENDCOMPOSITION:
 			DEBUG("[WinProc WM_IME_ENDCOMPOSITION] Clearing candidate list and input content");
-			InterlockedExchange(&pIMEPanel->bEnabled, FALSE);
+			pIMEPanel->m_bEnabled.store(false);
 
 			pIMEPanel->csImeInformation.Enter();
 			pIMEPanel->vwsCandidateList.clear();
@@ -80,8 +80,8 @@ namespace Hooks
 			if (pControlMap->textEntryCount) {
 				auto f = [=](UINT32 time) -> bool {
 					std::this_thread::sleep_for(std::chrono::milliseconds(time));
-					if (!pIMEPanel->bEnabled) {
-						InterlockedExchange(&pIMEPanel->bDisableSpecialKey, FALSE);
+					if (!pIMEPanel->m_bEnabled.load()) {
+						pIMEPanel->m_bDisableSpecialKey.store(false);
 					}
 					return true;
 				};

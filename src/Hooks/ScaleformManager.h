@@ -8,15 +8,12 @@ namespace Hooks
 		void Install();
 
 	private:
-		static void RegisterScaleformFunctions(RE::GFxMovieView* a_view, RE::GFxMovieView::ScaleModeType a_scaleMode);
-
-		inline static REL::Relocation<decltype(&RegisterScaleformFunctions)> _SetViewScaleMode;
-		RE::GFxMovie* _movie = nullptr;
-
 		class SKSEScaleform_AllowTextInput : public RE::GFxFunctionHandler
 		{
 		public:
 			void Call(Params& a_params) override;
 		};
+
+		CALL_DEF6(80302, 82325, 0x1D9, 0x1DD, Scaleform_SetScaleMode, void, RE::GFxMovieView*, RE::GFxMovieView::ScaleModeType);
 	};
 }
