@@ -69,13 +69,13 @@ STDAPI Cicero::QueryInterface(REFIID riid, void** ppvObj)
 	if (IsEqualIID(riid, IID_IUnknown))
 		*ppvObj = reinterpret_cast<IUnknown*>(this);
 	else if (IsEqualIID(riid, IID_ITfUIElementSink))
-		*ppvObj = (ITfUIElementSink*)this;
+		*ppvObj = static_cast<ITfUIElementSink*>(this);
 	else if (IsEqualIID(riid, IID_ITfInputProcessorProfileActivationSink))
-		*ppvObj = (ITfInputProcessorProfileActivationSink*)this;
+		*ppvObj = static_cast<ITfInputProcessorProfileActivationSink*>(this);
 	else if (IsEqualIID(riid, IID_ITfThreadMgrEventSink))
-		*ppvObj = (ITfThreadMgrEventSink*)this;
+		*ppvObj = static_cast<ITfThreadMgrEventSink*>(this);
 	else if (IsEqualIID(riid, IID_ITfTextEditSink))
-		*ppvObj = (ITfTextEditSink*)this;
+		*ppvObj = static_cast<ITfTextEditSink*>(this);
 	else
 		return E_NOINTERFACE;
 	AddRef();
@@ -84,6 +84,10 @@ STDAPI Cicero::QueryInterface(REFIID riid, void** ppvObj)
 
 HRESULT Cicero::SetupSinks()
 {
+	if (!Configs::bUseTSF) {
+		WARN("[TSF] TSF was disabled in config file");
+		return S_OK;
+	}
 	int processedCodeBlock = 0;
 	HRESULT hr = S_OK;
 	ITfSource* pSource = nullptr;
@@ -106,15 +110,15 @@ HRESULT Cicero::SetupSinks()
 	}
 	if (SUCCEEDED(hr)) {
 		processedCodeBlock++;
-		hr = pSource->AdviseSink(IID_ITfUIElementSink, (ITfUIElementSink*)this, &m_dwUIElementSinkCookie);
+		hr = pSource->AdviseSink(IID_ITfUIElementSink, static_cast<ITfUIElementSink*>(this), &m_dwUIElementSinkCookie);
 	}
 	if (SUCCEEDED(hr)) {
 		processedCodeBlock++;
-		hr = pSource->AdviseSink(IID_ITfInputProcessorProfileActivationSink, (ITfInputProcessorProfileActivationSink*)this, &m_dwInputProcessorProfileActivationSinkCookie);
+		hr = pSource->AdviseSink(IID_ITfInputProcessorProfileActivationSink, static_cast<ITfInputProcessorProfileActivationSink*>(this), &m_dwInputProcessorProfileActivationSinkCookie);
 	}
 	if (SUCCEEDED(hr)) {
 		processedCodeBlock++;
-		hr = pSource->AdviseSink(IID_ITfThreadMgrEventSink, (ITfThreadMgrEventSink*)this, &m_dwThreadMgrEventSinkCookie);
+		hr = pSource->AdviseSink(IID_ITfThreadMgrEventSink, static_cast<ITfThreadMgrEventSink*>(this), &m_dwThreadMgrEventSinkCookie);
 	}
 	if (SUCCEEDED(hr)) {
 		processedCodeBlock++;
@@ -236,8 +240,8 @@ STDAPI Cicero::OnEndEdit(ITfContext* cxt, TfEditCookie ecReadOnly, ITfEditRecord
 {
 	HRESULT hr = S_OK;
 	int token = rand();
-	ITfContextComposition* pContextComposition;
-	IEnumITfCompositionView* pEnumCompositionView;
+	ITfContextComposition* pContextComposition = {};
+	IEnumITfCompositionView* pEnumCompositionView = {};
 
 	DEBUG("[TSF OnEndEdit#{}] == Start ==", token);
 	if (SUCCEEDED(hr = cxt->QueryInterface(&pContextComposition))) {

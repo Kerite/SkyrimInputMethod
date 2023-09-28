@@ -15,6 +15,10 @@ void IMEPanel::OnRender()
 {
 	static constexpr ImGuiWindowFlags imguiFlag = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoInputs;
 
+	if (Configs::bHidePanelWithoutInput && wstrComposition.empty()) {
+		return;
+	}
+
 	if (RE::ControlMap::GetSingleton()->textEntryCount) {
 		std::uint32_t iSelectedIndex = m_ulSlectedIndex.load();
 		std::uint32_t iPageStartIndex = m_ulPageStartIndex.load();

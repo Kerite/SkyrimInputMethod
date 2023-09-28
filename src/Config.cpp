@@ -44,17 +44,20 @@ void LoadSettings(std::filesystem::path path)
 	config.LoadFile(path.string().c_str());
 
 	ReadInt32(config, "General", "candidate-size", Configs::iCandidateSize);
-	ReadBoolean(config, "General", "debug", Configs::bDebug);
-	ReadString(config, "General", "glyph-range-source-path", Configs::sGlyphRangeSourcePath);
+	ReadString(config, "General", "glyph-range-file-path", Configs::sGlyphRangeSourcePath);
+	ReadBoolean(config, "General", "hide-panel-without-input", Configs::bHidePanelWithoutInput);
 
-	ReadBoolean(config, "Feature", "unlock-win-key", Configs::bFeatureUnlockWinKey);
 	ReadBoolean(config, "Feature", "paste", Configs::bFeaturePaste);
+	ReadBoolean(config, "Feature", "unlock-win-key", Configs::bFeatureUnlockWinKey);
 
 	ReadString(config, "Font", "font", Configs::sFontPath);
 	ReadFloat(config, "Font", "font-size", Configs::fFontSize);
 
 	ReadFloat(config, "Position", "x", Configs::fPositionX);
 	ReadFloat(config, "Position", "y", Configs::fPositionY);
+
+	ReadBoolean(config, "Debug", "debug-mode", Configs::bDebug);
+	ReadBoolean(config, "Debug", "use-tsf", Configs::bUseTSF);
 }
 
 void Configs::Load() noexcept
