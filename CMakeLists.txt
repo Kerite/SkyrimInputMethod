@@ -13,7 +13,7 @@ include(GNUInstallDirs)
 # info
 project(
 	SkyrimInputMethod
-	VERSION 1.1.2
+	VERSION 1.1.3
 	LANGUAGES CXX
 )
 
