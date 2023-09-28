@@ -65,6 +65,11 @@ namespace Hooks
 					DEBUG("[WinProc WM_IME_COMPOSITION] Updating Composition String");
 					Utils::UpdateInputContent(hWnd);
 				}
+				if (lParam & GCS_CURSORPOS) {
+					DEBUG("[WinProc WM_IME_COMPOSITION] Updating Cursor Position");
+					HIMC hImc = ImmGetContext(hWnd);
+					pIMEPanel->m_ulCursorPos.store(ImmGetCompositionString(hImc, GCS_CURSORPOS, NULL, 0));
+				}
 			}
 			return S_OK;
 

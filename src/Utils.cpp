@@ -146,7 +146,7 @@ namespace Utils
 		HIMC hImc = ImmGetContext(hWnd);
 		LONG uNeededBytes, uStrLen;
 		DEBUG("= START FUNC = Utils::UpdateInputContent");
-		uNeededBytes = ImmGetCompositionString(hImc, GCS_COMPSTR, NULL, 0);
+		uNeededBytes = ImmGetCompositionString(hImc, GCS_COMPSTR, NULL, 0);  // 获取输入内容
 		if (!uNeededBytes) {
 			DEBUG("Composition String is empty, cancel");
 			ImmReleaseContext(hWnd, hImc);
@@ -159,7 +159,7 @@ namespace Utils
 
 		if (szCompStr) {
 			LONG writedBytes = ImmGetCompositionString(hImc, GCS_COMPSTR, szCompStr.get(), uNeededBytes);
-			szCompStr[uStrLen - 1] = '\0';
+			szCompStr[uStrLen - 1] = L'\0';
 
 			pIMEPanel->csImeInformation.Enter();
 			pIMEPanel->wstrComposition = std::wstring(szCompStr.get());
@@ -223,7 +223,7 @@ namespace Utils
 
 	bool SendUnicodeMessage(UINT32 code)
 	{
-		// Ignore '`' and '��', for console
+		// Ignore '`' and '·', for console
 		if (code == 96 || code == 183) {
 			return false;
 		}
