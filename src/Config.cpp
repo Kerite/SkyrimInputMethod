@@ -45,6 +45,7 @@ void LoadSettings(std::filesystem::path path)
 
 	ReadInt32(config, "General", "candidate-size", Configs::iCandidateSize);
 	ReadBoolean(config, "General", "debug", Configs::bDebug);
+	ReadString(config, "General", "glyph-range-source-path", Configs::sGlyphRangeSourcePath);
 
 	ReadBoolean(config, "Feature", "unlock-win-key", Configs::bFeatureUnlockWinKey);
 	ReadBoolean(config, "Feature", "paste", Configs::bFeaturePaste);

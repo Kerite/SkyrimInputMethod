@@ -18,6 +18,8 @@ public:
 	static inline float fPositionX{ 30.f };
 	static inline float fPositionY{ 30.f };
 
+	static inline std::string sGlyphRangeSourcePath{ "Data\\Interface\\fontconfig.txt" };
+
 	bool bAllowPasteInConsole = true;
 
 	void Load() noexcept;

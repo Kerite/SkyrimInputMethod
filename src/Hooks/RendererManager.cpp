@@ -58,33 +58,36 @@ void Hooks::RendererManager::Hook_InitD3D::hooked()
 	ImGui::CreateContext();
 	auto& io = ImGui::GetIO();
 	PutStyles(ImGui::GetStyle());
-	// Read glyph range from fontconfig.txt
-	FILE* inFile = fopen("Data\\Interface\\fontconfig.txt", "rb");
-	if (inFile == 0) {
-		ERROR("Can't read Data\\Interface\\fontconfig.txt");
-	}
-	unsigned char* charBuf;
-	fseek(inFile, 0, SEEK_END);
-	int fileLen = ftell(inFile);
-	charBuf = new unsigned char[fileLen];
-	fseek(inFile, 0, SEEK_SET);
-	fread(charBuf, fileLen, 1, inFile);
-	fclose(inFile);
+
 	static ImVector<ImWchar> ranges;
 	ImFontGlyphRangesBuilder glyphBuilder;
 	glyphBuilder.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
-	glyphBuilder.AddText((const char*)charBuf);
+
+	// Read glyph range from fontconfig.txt
+	INFO("Reading Glyph Range from {}", Configs::sGlyphRangeSourcePath.data());
+	FILE* inFile = fopen(Configs::sGlyphRangeSourcePath.data(), "rb");
+	if (inFile == 0) {
+		INFO("Can't read {}", Configs::sGlyphRangeSourcePath.data());
+	} else {
+		unsigned char* charBuf;
+		fseek(inFile, 0, SEEK_END);
+		int fileLen = ftell(inFile);
+		charBuf = new unsigned char[fileLen];
+		fseek(inFile, 0, SEEK_SET);
+		fread(charBuf, fileLen, 1, inFile);
+		fclose(inFile);
+		glyphBuilder.AddText((const char*)charBuf);
+		delete[] charBuf;
+	}
 	glyphBuilder.BuildRanges(&ranges);
-	auto pConfig = Configs::GetSingleton();
 	io.Fonts->AddFontFromFileTTF(SafeGetFont(Configs::sFontPath).c_str(), Configs::fFontSize, NULL, ranges.Data);
 	io.Fonts->Build();
-	delete[] charBuf;
 
 	if (!ImGui_ImplDX11_Init(pDevice, pDeviceContext)) {
-		ERROR("[Renderer] Failed init imgui (DX11)")
+		ERROR("[RendererManager] Failed init imgui (DX11)")
 	}
 	if (!ImGui_ImplWin32_Init(desc.OutputWindow)) {
-		ERROR("[Renderer] Failed init imgui (Win32)")
+		ERROR("[RendererManager] Failed init imgui (Win32)")
 	}
 	RendererManager::GetSingleton()->m_bInitialized.store(true);
 
